@@ -8,7 +8,6 @@ import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Objects;
 import javafx.application.Application;
 import javafx.geometry.Insets;
 import javafx.scene.Scene;
@@ -124,7 +123,7 @@ public class Main extends Application {
          Workbook workbook = new XSSFWorkbook(fis)) {
 
       final Calendar calendar = new GregorianCalendar();
-      final Sheet graphSheet = workbook.getSheetAt(INDEX_FILE_GRAPH_DATA_SHEET);
+      // final Sheet graphSheet = workbook.getSheetAt(INDEX_FILE_GRAPH_DATA_SHEET);
       final Sheet dataSheet = workbook.getSheetAt(INDEX_FILE_DATA_SHEET);
 
 
@@ -201,8 +200,6 @@ public class Main extends Application {
 
                   // Write data to index file
                   row.getCell(currColIndex).setCellValue(data);
-
-                  System.out.println(paramId + " - " + data);
                 }
               }
 
@@ -253,9 +250,15 @@ public class Main extends Application {
         }
 
         final String sampleId = sheet.getRow(sampleRow.getRowNum()).getCell(currColumn).getStringCellValue();
+
+        // hit the end maybe?
+        if (sampleId.isEmpty()) {
+          nullCount++;
+          continue;
+        }
+
         final String sampleIdDate = sheet.getRow(sampleRow.getRowNum() + 1).getCell(currColumn).getStringCellValue();
         final Date date = Date.from(LocalDate.parse(sampleIdDate).atStartOfDay().atZone(ZoneId.systemDefault()).toInstant());
-
 
         final LocationTestData locationTestData = new LocationTestData();
         labDataAnalTypesAndDate.put(sampleId.toUpperCase(), locationTestData);
@@ -269,9 +272,9 @@ public class Main extends Application {
         while (nullRowCount < 10) {
           currRow += 1;
 
+          // Some cells are empty because there are multiple tests and only one is used
           if (sheet.getRow(currRow) == null || sheet.getRow(currRow).getCell(0) == null) {
             nullRowCount++;
-            System.out.println("Null row at: " + currRow);
             continue;
           }
 
@@ -285,21 +288,19 @@ public class Main extends Application {
           while (paramValue.isEmpty()) {
             it += 1;
 
-            Cell nextCell = sheet.getRow(currRow + it).getCell(currColumn);
+            final Cell nextCell = sheet.getRow(currRow + it).getCell(currColumn);
 
             paramValue = nextCell == null ? "" : getCellValue(nextCell);
           }
 
-          System.out.println(sampleId + ": " + paramName + " - " + paramValue);
           locationTestData.addData(paramName, paramValue);
-
         }
       }
 
     } catch (Exception ex) {
       log("Error: " + ex.getMessage());
       ex.printStackTrace();
-      throw new Exception("Lab data seems fucked up ");
+      throw new Exception("Lab data seems fucked up. Check the cell constants and format.");
     }
   }
 
