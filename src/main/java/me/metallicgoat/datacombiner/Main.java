@@ -36,9 +36,7 @@ public class Main extends Application {
   private File indexFile;
   private TextArea logArea;
   private Label fileLabel;
-
   private final HashMap<String, LocationTestData> labDataAnalTypesAndDate = new HashMap<>();
-  private int commonTypes = 0;
 
   public static void main(String[] args) {
     launch(args);
@@ -139,9 +137,7 @@ public class Main extends Application {
 
           if (labDataAnalTypesAndDate.containsKey(currId)) {
             final LocationTestData locationTestData = labDataAnalTypesAndDate.get(currId);
-            final Date newestData = locationTestData.dataDate;
-
-            commonTypes++;
+            final Date newestDate = locationTestData.dataDate;
 
             // Go down one cell in the col, and loop until we find the latest date
             int currColIndex = cell.getColumnIndex();
@@ -160,7 +156,7 @@ public class Main extends Application {
 
                 // Once the date is smaller, it is the next sample, gone to far
                 if (curYear <= year) {
-                  if (date.getYear() == newestData.getYear() && date.getMonth() == newestData.getMonth()) {
+                  if (date.getYear() == newestDate.getYear() && date.getMonth() == newestDate.getMonth()) {
                     needsUpdating = false;
                     break;
                   }
@@ -183,6 +179,10 @@ public class Main extends Application {
               log(currId + " - NEEDS TO BE UPDATED");
 
               createNewCol(dataSheet, currColIndex);
+
+              final Cell newDateCell = dateNameRow.getCell(currColIndex);
+
+              newDateCell.setCellValue(newestDate);
 
               for (Row row : dataSheet) {
                 final Cell paramCell = row.getCell(0);
@@ -336,7 +336,7 @@ public class Main extends Application {
     }
 
     try {
-      // fix some things copy as strings
+      // fix some things copied as strings
       double numericValue = Double.parseDouble(value);
       cell.setCellValue(numericValue);
     } catch (NumberFormatException e) {
