@@ -225,7 +225,7 @@ public class Main extends Application {
     possibleId.replace(" ", "").toLowerCase();
 
     for (String id : labDataAnalTypesAndDate.keySet()) {
-      if (id.replace(" ", "").toLowerCase().contains(possibleId)) {
+      if (possibleId.contains(id.replace(" ", "").toLowerCase())) {
         return id;
       }
     }
