@@ -137,9 +137,9 @@ public class Main extends Application {
         if (cell.getCellType() == CellType.STRING && !seenTypes.contains(cell.getStringCellValue())) {
           seenTypes.add(cell.getStringCellValue());
 
-          final String currId = cell.getStringCellValue().toUpperCase();
+          final String currId = tryToMatchID(cell.getStringCellValue());
 
-          if (labDataAnalTypesAndDate.containsKey(tryToMatchID(currId))) {
+          if (labDataAnalTypesAndDate.containsKey(currId)) {
             final LocationTestData locationTestData = labDataAnalTypesAndDate.get(currId);
             final Date newestData = locationTestData.dataDate;
 
@@ -222,7 +222,7 @@ public class Main extends Application {
   }
 
   private String tryToMatchID(String possibleId) {
-    possibleId.replace(" ", "").toLowerCase();
+    possibleId = possibleId.replace(" ", "").toLowerCase();
 
     for (String id : labDataAnalTypesAndDate.keySet()) {
       if (possibleId.contains(id.replace(" ", "").toLowerCase())) {
