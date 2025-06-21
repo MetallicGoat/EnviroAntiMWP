@@ -139,7 +139,7 @@ public class Main extends Application {
 
           final String currId = cell.getStringCellValue().toUpperCase();
 
-          if (labDataAnalTypesAndDate.containsKey(currId)) {
+          if (labDataAnalTypesAndDate.containsKey(tryToMatchID(currId))) {
             final LocationTestData locationTestData = labDataAnalTypesAndDate.get(currId);
             final Date newestData = locationTestData.dataDate;
 
@@ -181,11 +181,7 @@ public class Main extends Application {
 
             if (issue != null) {
               log(currId + " - HAS AN ISSUE - " + issue);
-              continue;
-            }
-
-
-            if (needsUpdating) {
+            } else if (needsUpdating) {
               log(currId + " - NEEDS TO BE UPDATED");
 
               createNewCol(dataSheet, currColIndex);
@@ -203,9 +199,12 @@ public class Main extends Application {
                 }
               }
 
+              labDataAnalTypesAndDate.remove(currId);
+
             } else {
               log(currId + " - UP TO DATE ALREADY");
             }
+
           }
         }
       }
@@ -220,6 +219,18 @@ public class Main extends Application {
       ex.printStackTrace();
       throw new Exception("Failed to load the Index File, check cell constants ");
     }
+  }
+
+  private String tryToMatchID(String possibleId) {
+    possibleId.replace(" ", "").toLowerCase();
+
+    for (String id : labDataAnalTypesAndDate.keySet()) {
+      if (id.replace(" ", "").toLowerCase().contains(possibleId)) {
+        return id;
+      }
+    }
+
+    return possibleId;
   }
 
   private void readLabDataFile(File file) throws Exception {

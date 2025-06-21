@@ -73,7 +73,7 @@ public enum Param {
   styrene(),
   t_1_2_dichloroethylene("trans-1,2-Dichloroethylene"),
   t_1_3_dichloropropylene("trans-1,3-Dichloropropylene"),
-  tds__cond_calc_("total dissolved solids"),
+  tds__cond___calc_("total dissolved solids"),
   tss("total suspended solids"),
   ti("titanium"),
   tl("thallium"),
