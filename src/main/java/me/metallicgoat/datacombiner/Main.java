@@ -23,9 +23,11 @@ import java.io.*;
 
 public class Main extends Application {
 
-  private static final int LAB_DATA_SAMPLES_ROW = 2;
-  private static final int LAB_DATA_DATES_ROW = 3;
+  private static final int INDEX_FILE_SAMPLES_ROW = 2;
+  private static final int INDEX_FILE_DATES_ROW = 3;
   private static final int INDEX_FILE_DATA_SHEET = 1;
+
+  // UNUSED
   private static final int INDEX_FILE_GRAPH_DATA_SHEET = 0;
 
   private static final String outputFileName = "updatedFile.xlsx";
@@ -123,13 +125,9 @@ public class Main extends Application {
          Workbook workbook = new XSSFWorkbook(fis)) {
 
       final Calendar calendar = new GregorianCalendar();
-      // final Sheet graphSheet = workbook.getSheetAt(INDEX_FILE_GRAPH_DATA_SHEET);
       final Sheet dataSheet = workbook.getSheetAt(INDEX_FILE_DATA_SHEET);
-
-
-      final Row sampleNameRow = dataSheet.getRow(LAB_DATA_SAMPLES_ROW);
-      final Row dateNameRow = dataSheet.getRow(LAB_DATA_DATES_ROW);
-
+      final Row sampleNameRow = dataSheet.getRow(INDEX_FILE_SAMPLES_ROW);
+      final Row dateNameRow = dataSheet.getRow(INDEX_FILE_DATES_ROW);
       final List<String> seenTypes = new ArrayList<>();
 
       // Loop though all cells in the index file
@@ -338,6 +336,7 @@ public class Main extends Application {
     }
 
     try {
+      // fix some things copy as strings
       double numericValue = Double.parseDouble(value);
       cell.setCellValue(numericValue);
     } catch (NumberFormatException e) {
