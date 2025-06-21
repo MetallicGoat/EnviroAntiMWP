@@ -331,15 +331,20 @@ public class Main extends Application {
   }
 
   private void createNewCol(Sheet sheet, int colIndex) {
+    Workbook workbook = sheet.getWorkbook();
+
     for (Row row : sheet) {
-      Cell cell = row.createCell(colIndex);
-      if (row.getRowNum() == 0) {
-        // cell.setCellValue("New Column"); // Header row
-      } else {
-        //cell.setCellValue("Value " + row.getRowNum()); // Example data
+      final Cell leftCell = row.getCell(colIndex - 1);
+      final Cell newCell = row.createCell(colIndex);
+
+      if (leftCell != null && leftCell.getCellStyle() != null) {
+        final CellStyle newStyle = workbook.createCellStyle();
+        newStyle.cloneStyleFrom(leftCell.getCellStyle());
+        newCell.setCellStyle(newStyle);
       }
     }
   }
+
 
   private void showAlert(String msg) {
     Alert alert = new Alert(Alert.AlertType.WARNING, msg, ButtonType.OK);
