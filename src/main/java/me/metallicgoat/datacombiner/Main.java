@@ -195,7 +195,7 @@ public class Main extends Application {
                   final String data = locationTestData.getDataByParam(paramId);
 
                   // Write data to index file
-                  row.getCell(currColIndex).setCellValue(data);
+                  writeToCell(row.getCell(currColIndex), data);
                 }
               }
 
@@ -328,6 +328,21 @@ public class Main extends Application {
 
   private void log(String message) {
     logArea.appendText(message + "\n");
+  }
+
+
+  private void writeToCell(Cell cell, String value) {
+    if (value == null || value.trim().isEmpty()) {
+      cell.setBlank();
+      return;
+    }
+
+    try {
+      double numericValue = Double.parseDouble(value);
+      cell.setCellValue(numericValue);
+    } catch (NumberFormatException e) {
+      cell.setCellValue(value);
+    }
   }
 
   private void createNewCol(Sheet sheet, int colIndex) {
