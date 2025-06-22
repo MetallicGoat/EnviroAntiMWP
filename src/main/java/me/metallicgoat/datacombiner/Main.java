@@ -9,6 +9,8 @@ import java.util.GregorianCalendar;
 import java.util.HashMap;
 import java.util.List;
 import javafx.application.Application;
+import javafx.application.Platform;
+import javafx.concurrent.Task;
 import javafx.geometry.Insets;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
@@ -23,20 +25,19 @@ import java.io.*;
 
 public class Main extends Application {
 
+  private static final String APP_NAME = "EnvioAntiMWP";
+
   private static final int INDEX_FILE_SAMPLES_ROW = 2;
   private static final int INDEX_FILE_DATES_ROW = 3;
   private static final int INDEX_FILE_DATA_SHEET = 1;
 
-  // UNUSED
-  private static final int INDEX_FILE_GRAPH_DATA_SHEET = 0;
-
-  private static final String outputFileName = "updatedFile.xlsx";
+  private static final String outputFileName = "UpdatedFile.xlsx";
 
   private File labDataFile;
   private File indexFile;
   private TextArea logArea;
-  private Label fileLabel;
-  private final HashMap<String, LocationTestData> labDataAnalTypesAndDate = new HashMap<>();
+  private Button submitButton;
+  private final HashMap<String, LocationTestData> labTestDataByLocationId = new HashMap<>();
 
   public static void main(String[] args) {
     launch(args);
@@ -44,81 +45,142 @@ public class Main extends Application {
 
   @Override
   public void start(Stage stage) {
-    stage.setTitle("Excel .xlsm Reader");
+    stage.setTitle(APP_NAME);
 
-    Button selectLabDataFileButton = new Button("Select Lab Data File");
-    Button selectIndexFileButton = new Button("Select Index File");
-    Button submitButton = new Button("Submit");
+    final Label labDataLabel = new Label("Lab Data File:");
+    final TextField labDataField = new TextField();
+    labDataField.setPromptText("No file selected");
+    labDataField.setEditable(false);
+    final Button browseLabButton = new Button("Browse");
 
-    fileLabel = new Label("No file selected.");
+    final Label indexFileLabel = new Label("Index File:");
+    final TextField indexFileField = new TextField();
+    indexFileField.setPromptText("No file selected");
+    indexFileField.setEditable(false);
+    final Button browseIndexButton = new Button("Browse");
+
+    final GridPane fileGrid = new GridPane();
+    fileGrid.setHgap(10);
+    fileGrid.setVgap(10);
+    final ColumnConstraints col1 = new ColumnConstraints();
+    col1.setMinWidth(100);
+    final ColumnConstraints col2 = new ColumnConstraints();
+    col2.setHgrow(Priority.ALWAYS);  // Allow the text fields to expand
+    final ColumnConstraints col3 = new ColumnConstraints();
+    col3.setMinWidth(100);
+    fileGrid.getColumnConstraints().addAll(col1, col2, col3);
+
+    labDataField.setMaxWidth(Double.MAX_VALUE);
+    indexFileField.setMaxWidth(Double.MAX_VALUE);
+
+    fileGrid.add(labDataLabel, 0, 0);
+    fileGrid.add(labDataField, 1, 0);
+    fileGrid.add(browseLabButton, 2, 0);
+    fileGrid.add(indexFileLabel, 0, 1);
+    fileGrid.add(indexFileField, 1, 1);
+    fileGrid.add(browseIndexButton, 2, 1);
+
+    final TitledPane fileSection = new TitledPane("Select Files", fileGrid);
+    fileSection.setCollapsible(false);
+
+    submitButton = new Button("Process and Update Index File");
+    submitButton.setMaxWidth(Double.MAX_VALUE);
+    submitButton.setStyle("-fx-font-size: 14px; -fx-background-color: #4CAF50; -fx-text-fill: white;");
+
     logArea = new TextArea();
     logArea.setEditable(false);
     logArea.setWrapText(true);
+    logArea.setStyle("-fx-font-family: 'Consolas';");
+    logArea.setPrefHeight(300);
 
-    ScrollPane logScrollPane = new ScrollPane(logArea);
-    logScrollPane.setFitToWidth(true);
-    logScrollPane.setFitToHeight(true);
-    logScrollPane.setPrefHeight(300);
+    Label creditLabel = new Label("Created by Christian Azzam and Braydon Affleck · Written by Christian Azzam.");
+    creditLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: #777;");
 
-    selectLabDataFileButton.setOnAction(e -> {
+    final TitledPane logPane = new TitledPane("Log Output", logArea);
+    logPane.setCollapsible(false);
+
+    final VBox layout = new VBox(15, fileSection, submitButton, logPane, creditLabel);
+    layout.setPadding(new Insets(20));
+    layout.setStyle("-fx-font-family: 'Segoe UI';");
+
+    browseLabButton.setOnAction(e -> {
       labDataFile = promptSelectFile(stage);
+      if (labDataFile != null) labDataField.setText(labDataFile.getAbsolutePath());
     });
-    selectIndexFileButton.setOnAction(e -> {
+
+    browseIndexButton.setOnAction(e -> {
       indexFile = promptSelectFile(stage);
+      if (indexFile != null) indexFileField.setText(indexFile.getAbsolutePath());
     });
 
     submitButton.setOnAction(e -> {
-      if (labDataFile != null) {
-        log("Reading lab data file...");
-        try {
-          // Load the Data file into memory
-          readLabDataFile(labDataFile);
+      if (labDataFile != null && indexFile != null) {
+        submitButton.setDisable(true);
+        submitButton.setText("Processing...");
 
-          // Compare Data to Lab file
-          readArchiveFile(indexFile);
+        final Task<Void> task = new Task<>() {
+          @Override
+          protected Void call() {
+            log("Reading lab data file...");
+            try {
+              // Load the lab data into labTestDataByLocationId
+              readLabDataFile(labDataFile);
 
-        } catch (Exception ex) {
-          log("Error reading lab data file: " + ex.getMessage());
-          showAlert(ex.getMessage());
-        } catch (Throwable ex) {
-          showAlert(ex.getMessage());        }
+              // Look at the index file and update anything missing
+              tryUpdateIndexFile(indexFile);
 
+              log("Completed processing. Updated file written to: " + outputFileName);
+              showAlert("Completed Successfully!", Alert.AlertType.INFORMATION);
+
+            } catch (Exception ex) {
+              log("Error: " + ex.getMessage());
+              showAlert(ex.getMessage(), Alert.AlertType.WARNING);
+            }
+
+            return null;
+          }
+
+          @Override
+          protected void succeeded() {
+            resetButton();
+          }
+
+          @Override
+          protected void failed() {
+            resetButton();
+          }
+
+          @Override
+          protected void cancelled() {
+            resetButton();
+          }
+        };
+
+        new Thread(task).start();
       } else {
-        log("No file selected.");
-        showAlert("Please select a file first.");
+        showAlert("Please select both files.", Alert.AlertType.WARNING);
       }
     });
 
-    VBox layout = new VBox(10,
-        selectLabDataFileButton,
-        selectIndexFileButton,
-        fileLabel,
-        submitButton,
-        logScrollPane
-    );
-    layout.setPadding(new Insets(20));
-    layout.setStyle("-fx-font-family: 'Segoe UI', sans-serif;");
-
-    stage.setScene(new Scene(layout, 600, 450));
+    stage.setScene(new Scene(layout, 700, 500));
     stage.show();
   }
 
   // File Picker UI
   private File promptSelectFile(Stage stage) {
     FileChooser fileChooser = new FileChooser();
-    fileChooser.setTitle("Select Excel Macro File");
+    fileChooser.setTitle("Select Excel File");
 
     File selectedFile = fileChooser.showOpenDialog(stage);
 
     if (selectedFile != null) {
-      fileLabel.setText("Selected: " + selectedFile.getName());
       log("File selected: " + selectedFile.getAbsolutePath());
     }
 
     return selectedFile;
   }
 
-  private void readArchiveFile(File file) throws Exception {
+  private void tryUpdateIndexFile(File file) throws Exception {
     try (FileInputStream fis = new FileInputStream(file);
          Workbook workbook = new XSSFWorkbook(fis)) {
 
@@ -133,10 +195,10 @@ public class Main extends Application {
         if (cell.getCellType() == CellType.STRING && !seenTypes.contains(cell.getStringCellValue())) {
           seenTypes.add(cell.getStringCellValue());
 
-          final String currId = tryToMatchID(cell.getStringCellValue());
+          final String currId = tryToMatchLocationID(cell.getStringCellValue());
 
-          if (labDataAnalTypesAndDate.containsKey(currId)) {
-            final LocationTestData locationTestData = labDataAnalTypesAndDate.get(currId);
+          if (labTestDataByLocationId.containsKey(currId)) {
+            final LocationTestData locationTestData = labTestDataByLocationId.get(currId);
             final Date newestDate = locationTestData.dataDate;
 
             // Go down one cell in the col, and loop until we find the latest date
@@ -169,19 +231,16 @@ public class Main extends Application {
 
               } catch (Exception ex) {
                 keepLooking = false;
-                issue = "FAILED TO SEARCH THOUGH DATES - ARE THEY IN DATE FORMAT?";
+                issue = "Error reading date in column " + currColIndex;
               }
             }
 
             if (issue != null) {
-              log(currId + " - HAS AN ISSUE - " + issue);
+              log("ISSUE WITH " + currId + " - " + issue);
             } else if (needsUpdating) {
-              log(currId + " - NEEDS TO BE UPDATED");
-
               createNewCol(dataSheet, currColIndex);
 
               final Cell newDateCell = dateNameRow.getCell(currColIndex);
-
               newDateCell.setCellValue(newestDate);
 
               for (Row row : dataSheet) {
@@ -189,7 +248,6 @@ public class Main extends Application {
 
                 if (paramCell != null && paramCell.getCellType() == CellType.STRING){
                   final String paramId = paramCell.getStringCellValue();
-
                   final String data = locationTestData.getDataByParam(paramId);
 
                   // Write data to index file
@@ -197,12 +255,13 @@ public class Main extends Application {
                 }
               }
 
-              labDataAnalTypesAndDate.remove(currId);
+              labTestDataByLocationId.remove(currId);
+
+              log("COMPLETED '" + currId + "' - added new column at index " + currColIndex + ".");
 
             } else {
-              log(currId + " - UP TO DATE ALREADY");
+              log("SKIPPING '" + currId + "' - index file already updated.");
             }
-
           }
         }
       }
@@ -214,15 +273,16 @@ public class Main extends Application {
 
     } catch (Exception ex) {
       log("Error: " + ex.getMessage());
-      ex.printStackTrace();
       throw new Exception("Failed to load the Index File, check cell constants ");
     }
   }
 
-  private String tryToMatchID(String possibleId) {
+  // Location IDs in the index file are slightly different
+  // Often they are longer in index files
+  private String tryToMatchLocationID(String possibleId) {
     possibleId = possibleId.replace(" ", "").toLowerCase();
 
-    for (String id : labDataAnalTypesAndDate.keySet()) {
+    for (String id : labTestDataByLocationId.keySet()) {
       if (possibleId.contains(id.replace(" ", "").toLowerCase())) {
         return id;
       }
@@ -231,6 +291,7 @@ public class Main extends Application {
     return possibleId;
   }
 
+  // Reads the lab data file and populates the labTestDataByLocationId map
   private void readLabDataFile(File file) throws Exception {
     try (FileInputStream fis = new FileInputStream(file);
          Workbook workbook = new XSSFWorkbook(fis)) {
@@ -244,12 +305,14 @@ public class Main extends Application {
       final Cell sampleIdCell = sampleRow.getCell(sampleColumn);
 
       if (sampleIdCell == null || sampleIdCell.getCellType() == CellType.STRING && !sampleIdCell.getStringCellValue().trim().equals("Sample ID")) {
-        throw new Exception("ME IS SO CONFUSED? Sample ID not found in expected cell.");
+        throw new Exception("Sample ID not found in expected cell. Did you select the correct lab data file?");
       }
 
       int currColumn = sampleColumn;
       int nullCount = 0;
 
+      // Sometimes there are gaps for multiple tests
+      // If there is more than 10, it's probably the end of the data
       while (nullCount < 10) {
         currColumn += 1;
 
@@ -270,7 +333,7 @@ public class Main extends Application {
         final Date date = Date.from(LocalDate.parse(sampleIdDate).atStartOfDay().atZone(ZoneId.systemDefault()).toInstant());
 
         final LocationTestData locationTestData = new LocationTestData();
-        labDataAnalTypesAndDate.put(sampleId.toUpperCase(), locationTestData);
+        labTestDataByLocationId.put(sampleId.toUpperCase(), locationTestData);
         locationTestData.dataDate = date;
 
         nullCount = 0;
@@ -294,11 +357,12 @@ public class Main extends Application {
           String paramValue = getCellValue(sheet.getRow(currRow).getCell(currColumn));
 
           int it = 0;
+
+          // If the value is empty, we need to keep looking down the column
+          // This is for cases where data is not aligned due to different tests types
           while (paramValue.isEmpty()) {
             it += 1;
-
             final Cell nextCell = sheet.getRow(currRow + it).getCell(currColumn);
-
             paramValue = nextCell == null ? "" : getCellValue(nextCell);
           }
 
@@ -308,8 +372,7 @@ public class Main extends Application {
 
     } catch (Exception ex) {
       log("Error: " + ex.getMessage());
-      ex.printStackTrace();
-      throw new Exception("Lab data seems fucked up. Check the cell constants and format.");
+      throw new Exception("The lab data file is not in the expected format. ");
     }
   }
 
@@ -324,11 +387,7 @@ public class Main extends Application {
     };
   }
 
-  private void log(String message) {
-    logArea.appendText(message + "\n");
-  }
-
-
+  // writes as a string or numeric value
   private void writeToCell(Cell cell, String value) {
     if (value == null || value.trim().isEmpty()) {
       cell.setBlank();
@@ -337,15 +396,17 @@ public class Main extends Application {
 
     try {
       // fix some things copied as strings
-      double numericValue = Double.parseDouble(value);
+      final double numericValue = Double.parseDouble(value);
       cell.setCellValue(numericValue);
     } catch (NumberFormatException e) {
       cell.setCellValue(value);
     }
   }
 
+  // Creates a new column, coping the style from the left cells
+  // Try to be consistent with the index file
   private void createNewCol(Sheet sheet, int colIndex) {
-    Workbook workbook = sheet.getWorkbook();
+    final Workbook workbook = sheet.getWorkbook();
 
     for (Row row : sheet) {
       final Cell leftCell = row.getCell(colIndex - 1);
@@ -359,9 +420,26 @@ public class Main extends Application {
     }
   }
 
+  private void log(String message) {
+    if (Platform.isFxApplicationThread()) {
+      logArea.appendText(message + "\n");
+    } else {
+      Platform.runLater(() -> logArea.appendText(message + "\n"));
+    }
+  }
 
-  private void showAlert(String msg) {
-    Alert alert = new Alert(Alert.AlertType.WARNING, msg, ButtonType.OK);
-    alert.showAndWait();
+  private void showAlert(String message, Alert.AlertType type) {
+    Platform.runLater(() -> {
+      Alert alert = new Alert(type, message, ButtonType.OK);
+      alert.setTitle(APP_NAME);
+      alert.showAndWait();
+    });
+  }
+
+  private void resetButton() {
+    Platform.runLater(() -> {
+      submitButton.setDisable(false);
+      submitButton.setText("Process and Update Index File");
+    });
   }
 }

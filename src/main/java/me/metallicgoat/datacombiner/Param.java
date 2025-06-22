@@ -4,7 +4,7 @@ import java.util.*;
 
 
 // ENUM name is lab data versions
-// ENUM oaraometers are valyes that may appear in index files
+// ENUM parameters are values that may appear in index files
 
 // Convert slashes, spaces, commas, and dashes to underscore
 // Case is irrelevant, lower preferred
@@ -127,6 +127,7 @@ public enum Param {
     }
   }
 
+  // Index files are not very consistent with naming conventions...
   public static String standardizeParam(String param) {
     return param.toLowerCase().trim().replace("-", "_").replace(" ", "_").replace(",", "_").replace("/", "_").replace("(", "_").replace(")", "_");
   }
