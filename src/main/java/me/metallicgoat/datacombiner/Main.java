@@ -1,5 +1,6 @@
 package me.metallicgoat.datacombiner;
 
+import java.awt.*;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayList;
@@ -12,6 +13,10 @@ import javafx.application.Application;
 import javafx.geometry.Insets;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
+import javafx.scene.control.Button;
+import javafx.scene.control.Label;
+import javafx.scene.control.ScrollPane;
+import javafx.scene.control.TextArea;
 import javafx.scene.layout.*;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
@@ -20,12 +25,15 @@ import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
 import java.io.*;
+import javafx.application.Platform;
+import javafx.concurrent.Task;
+
 
 public class Main extends Application {
 
-  private static final int INDEX_FILE_SAMPLES_ROW = 2;
-  private static final int INDEX_FILE_DATES_ROW = 3;
-  private static final int INDEX_FILE_DATA_SHEET = 1;
+  private static final int INDEX_FILE_SAMPLES_ROW = 4;
+  private static final int INDEX_FILE_DATES_ROW = 5;
+  private static final int INDEX_FILE_DATA_SHEET = 2;
 
   // UNUSED
   private static final int INDEX_FILE_GRAPH_DATA_SHEET = 0;
@@ -37,9 +45,18 @@ public class Main extends Application {
   private TextArea logArea;
   private Label fileLabel;
   private final HashMap<String, LocationTestData> labDataAnalTypesAndDate = new HashMap<>();
+  private ProgressBar progressBar;
+  private Button openOutputFileButton;
+
 
   public static void main(String[] args) {
     launch(args);
+  }
+
+  private void updateFileLabel() {
+    String labFileName = labDataFile != null ? labDataFile.getName() : "No Lab Data file selected";
+    String indexFileName = indexFile != null ? indexFile.getName() : "No Index file selected";
+    fileLabel.setText("Lab Data: " + labFileName + " | Index: " + indexFileName);
   }
 
   @Override
@@ -51,10 +68,38 @@ public class Main extends Application {
     Button submitButton = new Button("Submit");
 
     fileLabel = new Label("No file selected.");
+    fileLabel.setStyle("-fx-text-fill: black;");
+
     logArea = new TextArea();
     logArea.setEditable(false);
     logArea.setWrapText(true);
 
+    // NEW: Progress bar
+    progressBar = new ProgressBar();
+    progressBar.setVisible(false);
+    progressBar.setPrefWidth(400);
+
+    // NEW: Button to open output file
+    openOutputFileButton = new Button("Open Output File");
+    openOutputFileButton.setDisable(true);
+    openOutputFileButton.setOnAction(e -> {
+      try {
+        Desktop.getDesktop().open(new File(outputFileName));
+      } catch (IOException ex) {
+        log("Unable to open file: " + ex.getMessage());
+        showAlert("Could not open the file.");
+      }
+    });
+
+    // Green border style for buttons (black text)
+    String greenBorderStyle = "-fx-border-color: #4CAF50; -fx-border-width: 2px; -fx-text-fill: black; -fx-border-radius: 4px; -fx-background-radius: 4px;";
+
+    selectLabDataFileButton.setStyle(greenBorderStyle);
+    selectIndexFileButton.setStyle(greenBorderStyle);
+    submitButton.setStyle(greenBorderStyle);
+    openOutputFileButton.setStyle(greenBorderStyle);
+
+    // Scrollable log area
     ScrollPane logScrollPane = new ScrollPane(logArea);
     logScrollPane.setFitToWidth(true);
     logScrollPane.setFitToHeight(true);
@@ -62,46 +107,72 @@ public class Main extends Application {
 
     selectLabDataFileButton.setOnAction(e -> {
       labDataFile = promptSelectFile(stage);
+      updateFileLabel();
     });
+
     selectIndexFileButton.setOnAction(e -> {
       indexFile = promptSelectFile(stage);
+      updateFileLabel();
     });
 
     submitButton.setOnAction(e -> {
-      if (labDataFile != null) {
-        log("Reading lab data file...");
-        try {
-          // Load the Data file into memory
-          readLabDataFile(labDataFile);
+      if (labDataFile != null && indexFile != null) {
+        progressBar.setVisible(true);
+        progressBar.setProgress(-1); // Indeterminate bar
 
-          // Compare Data to Lab file
-          readArchiveFile(indexFile);
+        Task<Void> task = new Task<>() {
+          @Override
+          protected Void call() throws Exception {
+            try {
+              log("Reading lab data file...");
+              readLabDataFile(labDataFile);
+              readArchiveFile(indexFile);
+            } catch (Exception ex) {
+              log("Error: " + ex.getMessage());
+              Platform.runLater(() -> showAlert(ex.getMessage()));
+            }
+            return null;
+          }
 
-        } catch (Exception ex) {
-          log("Error reading lab data file: " + ex.getMessage());
-          showAlert(ex.getMessage());
-        } catch (Throwable ex) {
-          showAlert(ex.getMessage());        }
+          @Override
+          protected void succeeded() {
+            progressBar.setVisible(false);
+            openOutputFileButton.setDisable(false);
+          }
 
+          @Override
+          protected void failed() {
+            progressBar.setVisible(false);
+            log("Task failed.");
+          }
+        };
+
+        new Thread(task).start();
       } else {
-        log("No file selected.");
-        showAlert("Please select a file first.");
+        log("Both files must be selected.");
+        showAlert("Please select both files first.");
       }
     });
 
     VBox layout = new VBox(10,
-        selectLabDataFileButton,
-        selectIndexFileButton,
-        fileLabel,
-        submitButton,
-        logScrollPane
+            selectLabDataFileButton,
+            selectIndexFileButton,
+            fileLabel,
+            submitButton,
+            progressBar,
+            openOutputFileButton,
+            logScrollPane
     );
     layout.setPadding(new Insets(20));
     layout.setStyle("-fx-font-family: 'Segoe UI', sans-serif;");
+    VBox.setVgrow(logScrollPane, Priority.ALWAYS);
 
-    stage.setScene(new Scene(layout, 600, 450));
+    stage.setScene(new Scene(layout, 600, 500));
     stage.show();
   }
+
+
+
 
   // File Picker UI
   private File promptSelectFile(Stage stage) {
