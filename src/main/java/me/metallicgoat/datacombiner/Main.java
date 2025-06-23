@@ -23,7 +23,6 @@ import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
 import java.io.*;
-import java.awt.Desktop;
 
 
 public class Main extends Application {
@@ -34,7 +33,8 @@ public class Main extends Application {
     private static final int INDEX_FILE_DATES_ROW = 3;
     private static final int INDEX_FILE_DATA_SHEET = 1;
 
-    private static final String outputFileName = "UpdatedFile.xlsx";
+    private static final String editedIndexFileName = "output/UpdatedFile.xlsx";
+    private static final String changesOnlyFileName = "output/ChangesOnly.xlsx";
 
     private File labDataFile;
     private File indexFile;
@@ -119,16 +119,17 @@ public class Main extends Application {
         logPane.setStyle("-fx-background-radius: 8;");
 
         // Open Updated File button placed below log output
-        Button openFileButton = new Button("Open Updated File");
+        final Button openFileButton = new Button("Open Updated File");
         openFileButton.setDisable(true);
         openFileButton.setMaxWidth(Double.MAX_VALUE);
         openFileButton.setStyle("-fx-background-color: #cccccc; -fx-text-fill: black; -fx-font-size: 14px; -fx-background-radius: 8;");
 
         openFileButton.setOnAction(e -> {
             try {
-                Desktop.getDesktop().open(new File(outputFileName));
-            } catch (IOException ex) {
-                showAlert("Could not open file: " + ex.getMessage(), Alert.AlertType.ERROR);
+                Util.openFile(new File(editedIndexFileName));
+            } catch (Exception ex) {
+                showAlert(ex.getMessage(), Alert.AlertType.ERROR);
+                log(ex.getMessage());
             }
         });
 
@@ -160,7 +161,7 @@ public class Main extends Application {
                         try {
                             readLabDataFile(labDataFile);
                             tryUpdateIndexFile(indexFile);
-                            log("Completed processing. Updated file written to: " + outputFileName);
+                            log("Completed processing. Updated file written to: " + editedIndexFileName);
                         } catch (Exception ex) {
                             log("Error: " + ex.getMessage());
                             showAlert(ex.getMessage(), Alert.AlertType.WARNING);
@@ -199,7 +200,6 @@ public class Main extends Application {
     }
 
 
-
     // File Picker UI
     private File promptSelectFile(Stage stage) {
         FileChooser fileChooser = new FileChooser();
@@ -215,14 +215,19 @@ public class Main extends Application {
     }
 
     private void tryUpdateIndexFile(File file) throws Exception {
-        try (FileInputStream fis = new FileInputStream(file);
-             Workbook workbook = new XSSFWorkbook(fis)) {
+        try (final FileInputStream fis = new FileInputStream(file);
+             final Workbook workbook = new XSSFWorkbook(fis);
+             final Workbook changesOnlyWorkBook = new XSSFWorkbook();
+             ) {
 
+            final Sheet changesOnlySheet = changesOnlyWorkBook.createSheet("Changes Only");
             final Calendar calendar = new GregorianCalendar();
-            final Sheet dataSheet = workbook.getSheetAt(INDEX_FILE_DATA_SHEET);
-            final Row sampleNameRow = dataSheet.getRow(INDEX_FILE_SAMPLES_ROW);
-            final Row dateNameRow = dataSheet.getRow(INDEX_FILE_DATES_ROW);
+            final Sheet indexSheet = workbook.getSheetAt(INDEX_FILE_DATA_SHEET);
+            final Row sampleNameRow = indexSheet.getRow(INDEX_FILE_SAMPLES_ROW);
+            final Row dateNameRow = indexSheet.getRow(INDEX_FILE_DATES_ROW);
             final List<String> seenTypes = new ArrayList<>();
+            
+            int updatedLocationsAmount = 0;
 
             // Loop though all cells in the index file
             for (Cell cell : sampleNameRow) {
@@ -272,12 +277,12 @@ public class Main extends Application {
                         if (issue != null) {
                             log("ISSUE WITH " + currId + " - " + issue);
                         } else if (needsUpdating) {
-                            createNewCol(dataSheet, currColIndex);
+                            createNewCol(indexSheet, currColIndex);
 
                             final Cell newDateCell = dateNameRow.getCell(currColIndex);
                             newDateCell.setCellValue(newestDate);
 
-                            for (Row row : dataSheet) {
+                            for (Row row : indexSheet) {
                                 final Cell paramCell = row.getCell(0);
 
                                 if (paramCell != null && paramCell.getCellType() == CellType.STRING) {
@@ -286,12 +291,16 @@ public class Main extends Application {
 
                                     // Write data to index file
                                     writeToCell(row.getCell(currColIndex), data);
+
+                                    // Write data to changes only sheet
+                                    writeToCell(changesOnlySheet.createRow(row.getRowNum()).createCell(updatedLocationsAmount), data);
                                 }
                             }
 
                             labTestDataByLocationId.remove(currId);
 
                             log("COMPLETED '" + currId + "' - added new column at index " + currColIndex + ".");
+                            updatedLocationsAmount++;
 
                         } else {
                             log("SKIPPING '" + currId + "' - index file already updated.");
@@ -300,14 +309,22 @@ public class Main extends Application {
                 }
             }
 
-            try (FileOutputStream fos = new FileOutputStream(outputFileName)) {
+            new File("/output").mkdirs();
+
+            try (FileOutputStream fos = new FileOutputStream(editedIndexFileName)) {
                 workbook.write(fos);
-                log("Updated file written to: " + outputFileName);
+                log("Updated index file written to: " + editedIndexFileName);
+            }
+            
+            try (FileOutputStream fos = new FileOutputStream(changesOnlyFileName)) {
+                changesOnlyWorkBook.write(fos); // line 320
+                log("Changes only file written to: " + changesOnlyFileName);
             }
 
         } catch (Exception ex) {
+            ex.printStackTrace();
             log("Error: " + ex.getMessage());
-            throw new Exception("Failed to load the Index File, check cell constants ");
+            throw new Exception(ex.getMessage());
         }
     }
 
