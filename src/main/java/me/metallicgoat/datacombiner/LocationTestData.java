@@ -5,7 +5,10 @@ import java.util.HashMap;
 
 public class LocationTestData {
 
+  // Analyte, Value
   public HashMap<String, String> data = new HashMap<>();
+
+  // Date the location was collected
   public Date dataDate;
 
 
