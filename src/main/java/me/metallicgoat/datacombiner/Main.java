@@ -29,8 +29,8 @@ public class Main extends Application {
 
     private static final String APP_NAME = "EnvioAntiMWP";
 
-    private static final int INDEX_FILE_SAMPLES_ROW = 2;
-    private static final int INDEX_FILE_DATES_ROW = 3;
+    private static final int INDEX_FILE_SAMPLES_ROW = 1;
+    private static final int INDEX_FILE_DATES_ROW = 2;
     private static final int INDEX_FILE_DATA_SHEET = 1;
 
     private static final String editedIndexFileName = "output/UpdatedFile.xlsx";
@@ -97,12 +97,12 @@ public class Main extends Application {
 
         submitButton = new Button("Process and Update Index File");
         submitButton.setMaxWidth(Double.MAX_VALUE);
-        submitButton.setStyle("-fx-font-size: 14px; -fx-background-color: #2ba65c; -fx-text-fill: white; -fx-background-radius: 8;");
+        submitButton.setStyle("-fx-font-size: 14px; -fx-background-color: #038262; -fx-text-fill: white; -fx-background-radius: 8;");
         submitButton.setOnMouseEntered(e ->
-                submitButton.setStyle("-fx-font-size: 14px; -fx-background-color: #239a53; -fx-text-fill: white; -fx-background-radius: 8;")
+                submitButton.setStyle("-fx-font-size: 14px; -fx-background-color: #0a8c6c; -fx-text-fill: white; -fx-background-radius: 8;")
         );
         submitButton.setOnMouseExited(e ->
-                submitButton.setStyle("-fx-font-size: 14px; -fx-background-color: #2ba65c; -fx-text-fill: white; -fx-background-radius: 8;")
+                submitButton.setStyle("-fx-font-size: 14px; -fx-background-color: #038262; -fx-text-fill: white; -fx-background-radius: 8;")
         );
 
         logArea = new TextArea();
@@ -174,7 +174,13 @@ public class Main extends Application {
                         resetButton();
                         Platform.runLater(() -> {
                             openFileButton.setDisable(false);
-                            openFileButton.setStyle("-fx-background-color: #2ba65c; -fx-text-fill: white; -fx-font-size: 14px; -fx-background-radius: 8;");
+                            openFileButton.setStyle("-fx-background-color: #038262; -fx-text-fill: white; -fx-font-size: 14px; -fx-background-radius: 8;");
+                            openFileButton.setOnMouseEntered(e ->
+                                    openFileButton.setStyle("-fx-font-size: 14px; -fx-background-color: #0a8c6c; -fx-text-fill: white; -fx-background-radius: 8;")
+                            );
+                            openFileButton.setOnMouseExited(e ->
+                                    openFileButton.setStyle("-fx-font-size: 14px; -fx-background-color: #038262; -fx-text-fill: white; -fx-background-radius: 8;")
+                            );
                         });
                     }
 
@@ -275,7 +281,7 @@ public class Main extends Application {
                         }
 
                         if (issue != null) {
-                            log("ISSUE WITH " + currId + " - " + issue);
+                            log(currId + ": FAILED - " + issue);
                         } else if (needsUpdating) {
                             createNewCol(indexSheet, currColIndex);
 
@@ -299,11 +305,12 @@ public class Main extends Application {
 
                             labTestDataByLocationId.remove(currId);
 
-                            log("COMPLETED '" + currId + "' - added new column at index " + currColIndex + ".");
+                            log(currId + ": COMPLETED - added new column at index " + NumberTranslator.columnIndexToExcelLetter(currColIndex) + ".");
+
                             updatedLocationsAmount++;
 
                         } else {
-                            log("SKIPPING '" + currId + "' - index file already updated.");
+                            log(currId + ": SKIPPED - index file already up to date.");
                         }
                     }
                 }
