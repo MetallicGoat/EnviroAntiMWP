@@ -21,6 +21,7 @@ import javafx.stage.Stage;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import javafx.geometry.Pos;
 
 import java.io.*;
 
@@ -42,6 +43,8 @@ public class Main extends Application {
     private Button submitButton;
     private final HashMap<String, LocationTestData> labTestDataByLocationId = new HashMap<>();
     private Button openFileButton;
+    private Button openChangesOnlyFileButton;
+
 
     public static void main(String[] args) {
         launch(args);
@@ -135,7 +138,34 @@ public class Main extends Application {
             }
         });
 
-        final VBox layout = new VBox(15, fileSection, submitButton, logPane, openFileButton, creditLabel);
+        openChangesOnlyFileButton = new Button("Open Change File");
+        openChangesOnlyFileButton.setDisable(true);
+        openChangesOnlyFileButton.setMaxWidth(Double.MAX_VALUE);
+        openChangesOnlyFileButton.setStyle("-fx-background-color: #cccccc; -fx-text-fill: black; -fx-font-size: 14px; -fx-background-radius: 8;");
+
+        openChangesOnlyFileButton.setOnAction(e -> {
+            try {
+                Util.openFile(new File(changesOnlyFileName));
+            } catch (Exception ex) {
+                showAlert(ex.getMessage(), Alert.AlertType.ERROR);
+                log(ex.getMessage());
+            }
+        });
+
+        Label orLabel = new Label("or");
+        orLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: #777;");
+
+
+        HBox orBox = new HBox(orLabel);
+        orBox.setAlignment(Pos.CENTER);
+        orBox.setMaxWidth(Double.MAX_VALUE); // allows it to fill width
+        orBox.setPrefHeight(10); // controls vertical height
+
+// Optional: Tighter margins (fine-tune vertical spacing)
+        VBox.setMargin(orBox, new Insets(2, 0, 2, 0));
+
+
+        final VBox layout = new VBox(15, fileSection, submitButton, logPane, openFileButton, orBox, openChangesOnlyFileButton, creditLabel);
         layout.setPadding(new Insets(20));
         layout.setStyle("-fx-font-family: 'Segoe UI';");
 
