@@ -30,8 +30,8 @@ public class Main extends Application {
 
     private static final String APP_NAME = "EnvioAntiMWP";
 
-    private static final int INDEX_FILE_SAMPLES_ROW = 1;
-    private static final int INDEX_FILE_DATES_ROW = 2;
+    private static final int INDEX_FILE_SAMPLES_ROW = 4;
+    private static final int INDEX_FILE_DATES_ROW = 5;
     private static final int INDEX_FILE_DATA_SHEET = 1;
 
     private static final String editedIndexFileName = "output/UpdatedFile.xlsx";
@@ -272,7 +272,12 @@ public class Main extends Application {
             final Row sampleNameRow = indexSheet.getRow(INDEX_FILE_SAMPLES_ROW);
             final Row dateNameRow = indexSheet.getRow(INDEX_FILE_DATES_ROW);
             final List<String> seenTypes = new ArrayList<>();
-            
+
+            CreationHelper creationHelper = changesOnlyWorkBook.getCreationHelper();
+            CellStyle dateCellStyle = changesOnlyWorkBook.createCellStyle();
+            dateCellStyle.setDataFormat(creationHelper.createDataFormat().getFormat("MMM-yy"));
+
+
             int updatedLocationsAmount = 0;
 
 
@@ -376,8 +381,10 @@ public class Main extends Application {
                             if  (changesOnlyDateRow == null) {
                                 changesOnlyDateRow = changesOnlySheet.createRow(INDEX_FILE_DATES_ROW);
                             }
-                            changesOnlyDateRow.createCell(updatedLocationsAmount).setCellValue(newestDate);
 
+                            Cell dateCell = changesOnlyDateRow.createCell(updatedLocationsAmount);
+                            dateCell.setCellValue(newestDate);
+                            dateCell.setCellStyle(dateCellStyle);
 
                             labTestDataByLocationId.remove(currId);
 
@@ -414,16 +421,23 @@ public class Main extends Application {
     // Location IDs in the index file are slightly different
     // Often they are longer in index files
     private String tryToMatchLocationID(String possibleId) {
-        possibleId = possibleId.replace(" ", "").toLowerCase();
+        String normalizedPossibleId = normalize(possibleId);
 
         for (String id : labTestDataByLocationId.keySet()) {
-            if (possibleId.contains(id.replace(" ", "").toLowerCase())) {
+            String normalizedLabId = normalize(id);
+            if (normalizedPossibleId.equals(normalizedLabId)) {
                 return id;
             }
         }
 
         return possibleId;
     }
+
+    private String normalize(String s) {
+        return s.replaceAll("[\\s\\-’']", "").toLowerCase(); // remove spaces, dashes, apostrophes
+    }
+
+
 
     // Reads the lab data file and populates the labTestDataByLocationId map
     private void readLabDataFile(File file) throws Exception {
