@@ -179,8 +179,8 @@ public class Main extends Application {
             if (labDataFile != null && indexFile != null) {
                 submitButton.setDisable(true);
                 submitButton.setText("Processing...");
-                openFileButton.setDisable(true);
-                openFileButton.setStyle("-fx-background-color: #cccccc; -fx-text-fill: black; -fx-font-size: 14px; -fx-background-radius: 8;");
+                setFileOpenButtonEnabled(openFileButton, false);
+                setFileOpenButtonEnabled(openChangesOnlyFileButton, false);
 
                 final Task<Void> task = new Task<>() {
                     @Override
@@ -201,14 +201,8 @@ public class Main extends Application {
                     protected void succeeded() {
                         resetButton();
                         Platform.runLater(() -> {
-                            openFileButton.setDisable(false);
-                            openFileButton.setStyle("-fx-background-color: #038262; -fx-text-fill: white; -fx-font-size: 14px; -fx-background-radius: 8;");
-                            openFileButton.setOnMouseEntered(e ->
-                                    openFileButton.setStyle("-fx-font-size: 14px; -fx-background-color: #0a8c6c; -fx-text-fill: white; -fx-background-radius: 8;")
-                            );
-                            openFileButton.setOnMouseExited(e ->
-                                    openFileButton.setStyle("-fx-font-size: 14px; -fx-background-color: #038262; -fx-text-fill: white; -fx-background-radius: 8;")
-                            );
+                            setFileOpenButtonEnabled(openFileButton, true);
+                            setFileOpenButtonEnabled(openChangesOnlyFileButton, true);
                         });
                     }
 
@@ -231,6 +225,23 @@ public class Main extends Application {
 
         stage.setScene(new Scene(layout, 700, 500));
         stage.show();
+    }
+
+
+    private void setFileOpenButtonEnabled(Button button, boolean enabled) {
+        if (enabled) {
+            button.setDisable(false);
+            button.setStyle("-fx-background-color: #038262; -fx-text-fill: white; -fx-font-size: 14px; -fx-background-radius: 8;");
+            button.setOnMouseEntered(e ->
+                    button.setStyle("-fx-font-size: 14px; -fx-background-color: #0a8c6c; -fx-text-fill: white; -fx-background-radius: 8;")
+            );
+            button.setOnMouseExited(e ->
+                    button.setStyle("-fx-font-size: 14px; -fx-background-color: #038262; -fx-text-fill: white; -fx-background-radius: 8;")
+            );
+        } else {
+            button.setDisable(true);
+            button.setStyle("-fx-background-color: #cccccc; -fx-text-fill: black; -fx-font-size: 14px; -fx-background-radius: 8;");
+        }
     }
 
 
@@ -343,9 +354,30 @@ public class Main extends Application {
                                     writeToCell(row.getCell(currColIndex), data);
 
                                     // Write data to changes only sheet
-                                    writeToCell(changesOnlySheet.createRow(row.getRowNum()).createCell(updatedLocationsAmount), data);
+                                    Row changesOnlyRow = changesOnlySheet.getRow(row.getRowNum());
+                                    if  (changesOnlyRow == null) {
+                                        changesOnlyRow = changesOnlySheet.createRow(row.getRowNum());
+                                    }
+
+                                    writeToCell(changesOnlyRow.createCell(updatedLocationsAmount), data);
                                 }
                             }
+
+                            // Add Title (Changes only file)
+                            Row changesOnlyTitleRow = changesOnlySheet.getRow(INDEX_FILE_SAMPLES_ROW);
+                            if  (changesOnlyTitleRow == null) {
+                                changesOnlyTitleRow = changesOnlySheet.createRow(INDEX_FILE_SAMPLES_ROW);
+                            }
+                            changesOnlyTitleRow .createCell(updatedLocationsAmount).setCellValue(cell.getStringCellValue());
+
+
+                            // Add date (Changes only file)
+                            Row changesOnlyDateRow = changesOnlySheet.getRow(INDEX_FILE_DATES_ROW);
+                            if  (changesOnlyDateRow == null) {
+                                changesOnlyDateRow = changesOnlySheet.createRow(INDEX_FILE_DATES_ROW);
+                            }
+                            changesOnlyDateRow.createCell(updatedLocationsAmount).setCellValue(newestDate);
+
 
                             labTestDataByLocationId.remove(currId);
 
