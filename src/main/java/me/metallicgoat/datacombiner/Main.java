@@ -74,7 +74,6 @@ public class Main extends Application {
         browseIndexButton.setStyle("-fx-background-radius: 8;");
 
 
-
         final GridPane fileGrid = new GridPane();
         fileGrid.setHgap(10);
         fileGrid.setVgap(10);
@@ -160,8 +159,6 @@ public class Main extends Application {
         HBox buttonsRow = new HBox(10, openFileButton, orLabel, openChangesOnlyFileButton);
         buttonsRow.setAlignment(Pos.CENTER);
         buttonsRow.setPadding(new Insets(5, 0, 5, 0));
-
-
 
         final VBox layout = new VBox(15, fileSection, submitButton, logPane, buttonsRow, creditLabel);
         layout.setPadding(new Insets(20));
@@ -258,7 +255,8 @@ public class Main extends Application {
              ) {
 
             final Sheet changesOnlySheet = changesOnlyWorkBook.createSheet("Changes Only");
-            final Calendar calendar = new GregorianCalendar();
+            final Calendar currentCalender = new GregorianCalendar();
+            final Calendar newestCalender = new GregorianCalendar();
             final Sheet indexSheet = workbook.getSheetAt(INDEX_FILE_DATA_SHEET);
             final Row sampleNameRow = indexSheet.getRow(INDEX_FILE_SAMPLES_ROW);
             final Row dateNameRow = indexSheet.getRow(INDEX_FILE_DATES_ROW);
@@ -266,8 +264,16 @@ public class Main extends Application {
             
             int updatedLocationsAmount = 0;
 
-            // Loop though all cells in the index file
+
+            // TODO Fix Concurrent modification properly
+            final List<Cell> cells = new ArrayList<>();
+
             for (Cell cell : sampleNameRow) {
+                cells.add(cell);
+            }
+
+            // Loop though all cells in the index file
+            for (Cell cell : cells) {
                 if (cell.getCellType() == CellType.STRING && !seenTypes.contains(cell.getStringCellValue())) {
                     seenTypes.add(cell.getStringCellValue());
 
@@ -276,6 +282,8 @@ public class Main extends Application {
                     if (labTestDataByLocationId.containsKey(currId)) {
                         final LocationTestData locationTestData = labTestDataByLocationId.get(currId);
                         final Date newestDate = locationTestData.dataDate;
+
+                        newestCalender.setTime(newestDate);
 
                         // Go down one cell in the col, and loop until we find the latest date
                         int currColIndex = cell.getColumnIndex();
@@ -287,14 +295,18 @@ public class Main extends Application {
                         while (keepLooking) {
                             final Cell dateCell = dateNameRow.getCell(currColIndex);
 
+                            if (dateCell == null) {
+                                break;
+                            }
+
                             try {
                                 final Date date = dateCell.getDateCellValue();
-                                calendar.setTime(date);
-                                final int year = calendar.get(Calendar.YEAR);
+                                currentCalender.setTime(date);
+                                final int year = currentCalender.get(Calendar.YEAR);
 
                                 // Once the date is smaller, it is the next sample, gone to far
                                 if (curYear <= year) {
-                                    if (date.getYear() == newestDate.getYear() && date.getMonth() == newestDate.getMonth()) {
+                                    if (currentCalender.get(Calendar.YEAR) == newestCalender.get(Calendar.YEAR) && currentCalender.get(Calendar.MONTH)  == newestCalender.get(Calendar.MONTH)) {
                                         needsUpdating = false;
                                         break;
                                     }
@@ -308,6 +320,7 @@ public class Main extends Application {
                             } catch (Exception ex) {
                                 keepLooking = false;
                                 issue = "Error reading date in column " + NumberTranslator.columnIndexToExcelLetter(currColIndex);
+                                ex.printStackTrace();
                             }
                         }
 
