@@ -12,6 +12,7 @@ import java.util.*;
 public enum Param {
   ag("silver"),
   al("aluminum"),
+  al__dissolved_("aluminum"),
   alkalinity_as_caco3("alkalinity"),
   as("arsenic"),
   b("boron"),
@@ -77,6 +78,7 @@ public enum Param {
   tss("total suspended solids"),
   ti("titanium"),
   tl("thallium"),
+  toc("total organic carbon"),
   toluene(),
   toluene_d8(),
   total_kjeldahl_nitrogen(),
