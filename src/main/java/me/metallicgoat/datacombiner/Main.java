@@ -138,6 +138,8 @@ public class Main extends Application {
             }
         });
 
+        Label orLabel = new Label("or");
+
         openChangesOnlyFileButton = new Button("Open Change File");
         openChangesOnlyFileButton.setDisable(true);
         openChangesOnlyFileButton.setMaxWidth(Double.MAX_VALUE);
@@ -152,20 +154,16 @@ public class Main extends Application {
             }
         });
 
-        Label orLabel = new Label("or");
-        orLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: #777;");
+        openFileButton.setMinWidth(180);
+        openChangesOnlyFileButton.setMinWidth(180);
+
+        HBox buttonsRow = new HBox(10, openFileButton, orLabel, openChangesOnlyFileButton);
+        buttonsRow.setAlignment(Pos.CENTER);
+        buttonsRow.setPadding(new Insets(5, 0, 5, 0));
 
 
-        HBox orBox = new HBox(orLabel);
-        orBox.setAlignment(Pos.CENTER);
-        orBox.setMaxWidth(Double.MAX_VALUE); // allows it to fill width
-        orBox.setPrefHeight(10); // controls vertical height
 
-// Optional: Tighter margins (fine-tune vertical spacing)
-        VBox.setMargin(orBox, new Insets(2, 0, 2, 0));
-
-
-        final VBox layout = new VBox(15, fileSection, submitButton, logPane, openFileButton, orBox, openChangesOnlyFileButton, creditLabel);
+        final VBox layout = new VBox(15, fileSection, submitButton, logPane, buttonsRow, creditLabel);
         layout.setPadding(new Insets(20));
         layout.setStyle("-fx-font-family: 'Segoe UI';");
 
@@ -309,7 +307,7 @@ public class Main extends Application {
 
                             } catch (Exception ex) {
                                 keepLooking = false;
-                                issue = "Error reading date in column " + currColIndex;
+                                issue = "Error reading date in column " + NumberTranslator.columnIndexToExcelLetter(currColIndex);
                             }
                         }
 
