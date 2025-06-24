@@ -70,6 +70,8 @@ public class Main extends Application {
         final Button browseIndexButton = new Button("Browse");
         browseIndexButton.setStyle("-fx-background-radius: 8;");
 
+
+
         final GridPane fileGrid = new GridPane();
         fileGrid.setHgap(10);
         fileGrid.setVgap(10);
@@ -136,6 +138,7 @@ public class Main extends Application {
         final VBox layout = new VBox(15, fileSection, submitButton, logPane, openFileButton, creditLabel);
         layout.setPadding(new Insets(20));
         layout.setStyle("-fx-font-family: 'Segoe UI';");
+
 
         browseLabButton.setOnAction(e -> {
             labDataFile = promptSelectFile(stage);
