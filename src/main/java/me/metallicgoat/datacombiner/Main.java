@@ -26,6 +26,8 @@ import javafx.geometry.Pos;
 import static me.metallicgoat.datacombiner.Normalizer.normalize;
 
 import java.io.*;
+import java.util.Set;
+import java.util.HashSet;
 
 
 public class Main extends Application {
@@ -46,6 +48,7 @@ public class Main extends Application {
     private final HashMap<String, LocationTestData> labTestDataByLocationId = new HashMap<>();
     private Button openFileButton;
     private Button openChangesOnlyFileButton;
+    private static final Set<String> NON_WELL_LABELS = Set.of("PARAMETER", "Units", "ODWQS");
 
 
     public static void main(String[] args) {
@@ -191,7 +194,7 @@ public class Main extends Application {
                         try {
                             readLabDataFile(labDataFile);
                             tryUpdateIndexFile(indexFile);
-                            log("Completed processing. Updated file written to: " + editedIndexFileName);
+                            log("Completed processing.");
                         } catch (Exception ex) {
                             log("Error: " + ex.getMessage());
                             showAlert(ex.getMessage(), Alert.AlertType.WARNING);
@@ -261,49 +264,56 @@ public class Main extends Application {
         return selectedFile;
     }
 
+
     private void tryUpdateIndexFile(File file) throws Exception {
         try (final FileInputStream fis = new FileInputStream(file);
              final Workbook workbook = new XSSFWorkbook(fis);
              final Workbook changesOnlyWorkBook = new XSSFWorkbook();
         ) {
-
             final Sheet changesOnlySheet = changesOnlyWorkBook.createSheet("Changes Only");
             final Calendar currentCalender = new GregorianCalendar();
             final Calendar newestCalender = new GregorianCalendar();
             final Sheet indexSheet = workbook.getSheetAt(INDEX_FILE_DATA_SHEET);
             final Row sampleNameRow = indexSheet.getRow(INDEX_FILE_SAMPLES_ROW);
             final Row dateNameRow = indexSheet.getRow(INDEX_FILE_DATES_ROW);
-            final List<String> seenTypes = new ArrayList<>();
 
-            CreationHelper creationHelper = changesOnlyWorkBook.getCreationHelper();
-            CellStyle dateCellStyle = changesOnlyWorkBook.createCellStyle();
-            dateCellStyle.setDataFormat(creationHelper.createDataFormat().getFormat("MMM-yy"));
+            // 1. Snapshot of all lab IDs normalized BEFORE processing
+            Set<String> allLabIdsNormalized = new HashSet<>();
+            for (String id : labTestDataByLocationId.keySet()) {
+                allLabIdsNormalized.add(normalize(id));
+            }
 
+            // To keep track of which lab IDs got matched this run
+            Set<String> matchedLabIdsNormalized = new HashSet<>();
 
             int updatedLocationsAmount = 0;
 
-
-            // TODO Fix Concurrent modification properly
-            final List<Cell> cells = new ArrayList<>();
-
+            // TODO: I might have fixed the concurrent modification
+            List<Cell> cells = new ArrayList<>();
             for (Cell cell : sampleNameRow) {
                 cells.add(cell);
             }
 
-            // Loop though all cells in the index file
+            // 2. Process each index cell to add new data columns if needed
             for (Cell cell : cells) {
-                if (cell.getCellType() == CellType.STRING && !seenTypes.contains(cell.getStringCellValue())) {
-                    seenTypes.add(cell.getStringCellValue());
+                if (cell.getCellType() == CellType.STRING) {
+                    String currRawId = cell.getStringCellValue();
+                    String normalizedCurrId = normalize(currRawId);
 
-                    final String currId = tryToMatchLocationID(cell.getStringCellValue());
+                    // Find matching lab ID key for this index ID
+                    String matchedLabId = null;
+                    for (String labId : labTestDataByLocationId.keySet()) {
+                        if (normalize(labId).equals(normalizedCurrId)) {
+                            matchedLabId = labId;
+                            break;
+                        }
+                    }
 
-                    if (labTestDataByLocationId.containsKey(currId)) {
-                        final LocationTestData locationTestData = labTestDataByLocationId.get(currId);
-                        final Date newestDate = locationTestData.dataDate;
-
+                    if (matchedLabId != null) {
+                        LocationTestData locationTestData = labTestDataByLocationId.get(matchedLabId);
+                        Date newestDate = locationTestData.dataDate;
                         newestCalender.setTime(newestDate);
 
-                        // Go down one cell in the col, and loop until we find the latest date
                         int currColIndex = cell.getColumnIndex();
                         int curYear = 0;
                         boolean keepLooking = true;
@@ -312,29 +322,24 @@ public class Main extends Application {
 
                         while (keepLooking) {
                             final Cell dateCell = dateNameRow.getCell(currColIndex);
-
-                            if (dateCell == null) {
-                                break;
-                            }
+                            if (dateCell == null) break;
 
                             try {
                                 final Date date = dateCell.getDateCellValue();
                                 currentCalender.setTime(date);
                                 final int year = currentCalender.get(Calendar.YEAR);
 
-                                // Once the date is smaller, it is the next sample, gone to far
                                 if (curYear <= year) {
-                                    if (currentCalender.get(Calendar.YEAR) == newestCalender.get(Calendar.YEAR) && currentCalender.get(Calendar.MONTH) == newestCalender.get(Calendar.MONTH)) {
+                                    if (currentCalender.get(Calendar.YEAR) == newestCalender.get(Calendar.YEAR) &&
+                                            currentCalender.get(Calendar.MONTH) == newestCalender.get(Calendar.MONTH)) {
                                         needsUpdating = false;
                                         break;
                                     }
-
                                     curYear = year;
                                     currColIndex++;
                                 } else {
                                     keepLooking = false;
                                 }
-
                             } catch (Exception ex) {
                                 keepLooking = false;
                                 issue = "Error reading date in column " + NumberTranslator.columnIndexToExcelLetter(currColIndex);
@@ -343,29 +348,28 @@ public class Main extends Application {
                         }
 
                         if (issue != null) {
-                            log(currId + ": FAILED - " + issue);
+                            log(currRawId + ": FAILED - " + issue);
                         } else if (needsUpdating) {
                             createNewCol(indexSheet, currColIndex);
 
                             final Cell newDateCell = dateNameRow.getCell(currColIndex);
                             newDateCell.setCellValue(newestDate);
 
+                            // Optional: apply date style if you have one
+                            // newDateCell.setCellStyle(dateCellStyle);
+
                             for (Row row : indexSheet) {
                                 final Cell paramCell = row.getCell(0);
-
                                 if (paramCell != null && paramCell.getCellType() == CellType.STRING) {
-                                    final String paramId = paramCell.getStringCellValue();
-                                    final String data = locationTestData.getDataByParam(paramId);
+                                    String paramId = paramCell.getStringCellValue();
+                                    String data = locationTestData.getDataByParam(paramId);
 
-                                    // Write data to index file
                                     writeToCell(row.getCell(currColIndex), data);
 
-                                    // Write data to changes only sheet
                                     Row changesOnlyRow = changesOnlySheet.getRow(row.getRowNum());
                                     if (changesOnlyRow == null) {
                                         changesOnlyRow = changesOnlySheet.createRow(row.getRowNum());
                                     }
-
                                     writeToCell(changesOnlyRow.createCell(updatedLocationsAmount), data);
                                 }
                             }
@@ -375,41 +379,82 @@ public class Main extends Application {
                             if (changesOnlyTitleRow == null) {
                                 changesOnlyTitleRow = changesOnlySheet.createRow(INDEX_FILE_SAMPLES_ROW);
                             }
-                            changesOnlyTitleRow.createCell(updatedLocationsAmount).setCellValue(cell.getStringCellValue());
-
+                            changesOnlyTitleRow.createCell(updatedLocationsAmount).setCellValue(currRawId);
 
                             // Add date (Changes only file)
                             Row changesOnlyDateRow = changesOnlySheet.getRow(INDEX_FILE_DATES_ROW);
                             if (changesOnlyDateRow == null) {
                                 changesOnlyDateRow = changesOnlySheet.createRow(INDEX_FILE_DATES_ROW);
                             }
-
                             Cell dateCell = changesOnlyDateRow.createCell(updatedLocationsAmount);
                             dateCell.setCellValue(newestDate);
-                            dateCell.setCellStyle(dateCellStyle);
+                            // Optionally apply dateCellStyle here too
 
-                            labTestDataByLocationId.remove(currId);
+                            matchedLabIdsNormalized.add(normalizedCurrId);
 
-                            log(currId + ": COMPLETED - added new column at index " + NumberTranslator.columnIndexToExcelLetter(currColIndex) + ".");
+                            log(currRawId + ": COMPLETED - added new column at index " + NumberTranslator.columnIndexToExcelLetter(currColIndex) + ".");
 
                             updatedLocationsAmount++;
-
                         } else {
-                            log(currId + ": SKIPPED - index file already up to date.");
+                            log(currRawId + ": SKIPPED - index file already up to date.");
+                            matchedLabIdsNormalized.add(normalizedCurrId);
                         }
                     }
                 }
             }
 
-            new File("/output").mkdirs();
+            // 3. Now find index IDs that have no matching lab data
+            Set<String> normalizedSampleIdsInIndex = new HashSet<>();
+            List<String> unmatchedIndexIds = new ArrayList<>();
 
+            for (Cell cell : sampleNameRow) {
+                if (cell.getCellType() == CellType.STRING) {
+                    String rawId = cell.getStringCellValue();
+                    if (NON_WELL_LABELS.contains(rawId)) {
+                        continue;
+                    }
+                    String normalizedId = normalize(rawId);
+
+                    if (!normalizedSampleIdsInIndex.contains(normalizedId)) {
+                        normalizedSampleIdsInIndex.add(normalizedId);
+
+                        if (!allLabIdsNormalized.contains(normalizedId)) {
+                            unmatchedIndexIds.add(rawId);
+                        }
+                    }
+                }
+            }
+
+            if (!unmatchedIndexIds.isEmpty()) {
+                log("Wells in INDEX FILE with NO matching lab data");
+                for (String id : unmatchedIndexIds) {
+                    log(id);
+                }
+
+            } else {
+                log("All wells in the index file matched lab data.");
+            }
+
+            // 4. Find lab IDs that were never matched to index (missed wells)
+            List<String> unmatchedLabIds = new ArrayList<>();
+            for (String labId : labTestDataByLocationId.keySet()) {
+                String normalizedLabId = normalize(labId);
+                if (!matchedLabIdsNormalized.contains(normalizedLabId)) {
+                    unmatchedLabIds.add(labId);
+                }
+            }
+
+            // 5. Create output directory if it doesn't exist
+            new File("output").mkdirs();
+
+            // 6. Write output files
             try (FileOutputStream fos = new FileOutputStream(editedIndexFileName)) {
                 workbook.write(fos);
                 log("Updated index file written to: " + editedIndexFileName);
             }
 
             try (FileOutputStream fos = new FileOutputStream(changesOnlyFileName)) {
-                changesOnlyWorkBook.write(fos); // line 320
+                changesOnlyWorkBook.write(fos);
                 log("Changes only file written to: " + changesOnlyFileName);
             }
 
