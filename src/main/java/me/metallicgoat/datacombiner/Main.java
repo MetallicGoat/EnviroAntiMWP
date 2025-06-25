@@ -48,7 +48,7 @@ public class Main extends Application {
     private final HashMap<String, LocationTestData> labTestDataByLocationId = new HashMap<>();
     private Button openFileButton;
     private Button openChangesOnlyFileButton;
-    private static final Set<String> NON_WELL_LABELS = Set.of("PARAMETER", "Units", "ODWQS");
+    private static final Set<String> NON_WELL_LABELS = Set.of("PARAMETER", "Units", "ODWQS", "PWQO");
 
 
     public static void main(String[] args) {
@@ -294,11 +294,19 @@ public class Main extends Application {
                 cells.add(cell);
             }
 
+            Set<String> alreadyHandledIds = new HashSet<>();
+
             // 2. Process each index cell to add new data columns if needed
             for (Cell cell : cells) {
                 if (cell.getCellType() == CellType.STRING) {
                     String currRawId = cell.getStringCellValue();
                     String normalizedCurrId = normalize(currRawId);
+
+                    if (alreadyHandledIds.contains(normalizedCurrId)) {
+                        continue; // skip duplicates and cont'd versions
+                    }
+
+                    alreadyHandledIds.add(normalizedCurrId);
 
                     // Find matching lab ID key for this index ID
                     String matchedLabId = null;
@@ -426,13 +434,13 @@ public class Main extends Application {
             }
 
             if (!unmatchedIndexIds.isEmpty()) {
-                log("Wells in INDEX FILE with NO matching lab data");
+                log("Indices which were not updated:");
                 for (String id : unmatchedIndexIds) {
                     log(id);
                 }
 
             } else {
-                log("All wells in the index file matched lab data.");
+                log("All wells in index file updated.");
             }
 
             // 4. Find lab IDs that were never matched to index (missed wells)
