@@ -23,6 +23,8 @@ import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import javafx.geometry.Pos;
 
+import static me.metallicgoat.datacombiner.Normalizer.normalize;
+
 import java.io.*;
 
 
@@ -32,7 +34,7 @@ public class Main extends Application {
 
     private static final int INDEX_FILE_SAMPLES_ROW = 4;
     private static final int INDEX_FILE_DATES_ROW = 5;
-    private static final int INDEX_FILE_DATA_SHEET = 1;
+    private static final int INDEX_FILE_DATA_SHEET = 2;
 
     private static final String editedIndexFileName = "output/UpdatedFile.xlsx";
     private static final String changesOnlyFileName = "output/ChangesOnly.xlsx";
@@ -263,7 +265,7 @@ public class Main extends Application {
         try (final FileInputStream fis = new FileInputStream(file);
              final Workbook workbook = new XSSFWorkbook(fis);
              final Workbook changesOnlyWorkBook = new XSSFWorkbook();
-             ) {
+        ) {
 
             final Sheet changesOnlySheet = changesOnlyWorkBook.createSheet("Changes Only");
             final Calendar currentCalender = new GregorianCalendar();
@@ -322,7 +324,7 @@ public class Main extends Application {
 
                                 // Once the date is smaller, it is the next sample, gone to far
                                 if (curYear <= year) {
-                                    if (currentCalender.get(Calendar.YEAR) == newestCalender.get(Calendar.YEAR) && currentCalender.get(Calendar.MONTH)  == newestCalender.get(Calendar.MONTH)) {
+                                    if (currentCalender.get(Calendar.YEAR) == newestCalender.get(Calendar.YEAR) && currentCalender.get(Calendar.MONTH) == newestCalender.get(Calendar.MONTH)) {
                                         needsUpdating = false;
                                         break;
                                     }
@@ -360,7 +362,7 @@ public class Main extends Application {
 
                                     // Write data to changes only sheet
                                     Row changesOnlyRow = changesOnlySheet.getRow(row.getRowNum());
-                                    if  (changesOnlyRow == null) {
+                                    if (changesOnlyRow == null) {
                                         changesOnlyRow = changesOnlySheet.createRow(row.getRowNum());
                                     }
 
@@ -370,15 +372,15 @@ public class Main extends Application {
 
                             // Add Title (Changes only file)
                             Row changesOnlyTitleRow = changesOnlySheet.getRow(INDEX_FILE_SAMPLES_ROW);
-                            if  (changesOnlyTitleRow == null) {
+                            if (changesOnlyTitleRow == null) {
                                 changesOnlyTitleRow = changesOnlySheet.createRow(INDEX_FILE_SAMPLES_ROW);
                             }
-                            changesOnlyTitleRow .createCell(updatedLocationsAmount).setCellValue(cell.getStringCellValue());
+                            changesOnlyTitleRow.createCell(updatedLocationsAmount).setCellValue(cell.getStringCellValue());
 
 
                             // Add date (Changes only file)
                             Row changesOnlyDateRow = changesOnlySheet.getRow(INDEX_FILE_DATES_ROW);
-                            if  (changesOnlyDateRow == null) {
+                            if (changesOnlyDateRow == null) {
                                 changesOnlyDateRow = changesOnlySheet.createRow(INDEX_FILE_DATES_ROW);
                             }
 
@@ -405,7 +407,7 @@ public class Main extends Application {
                 workbook.write(fos);
                 log("Updated index file written to: " + editedIndexFileName);
             }
-            
+
             try (FileOutputStream fos = new FileOutputStream(changesOnlyFileName)) {
                 changesOnlyWorkBook.write(fos); // line 320
                 log("Changes only file written to: " + changesOnlyFileName);
@@ -418,13 +420,11 @@ public class Main extends Application {
         }
     }
 
-    // Location IDs in the index file are slightly different
-    // Often they are longer in index files
     private String tryToMatchLocationID(String possibleId) {
-        String normalizedPossibleId = normalize(possibleId);
+        String normalizedPossibleId = Normalizer.normalize(possibleId);
 
         for (String id : labTestDataByLocationId.keySet()) {
-            String normalizedLabId = normalize(id);
+            String normalizedLabId = Normalizer.normalize(id);
             if (normalizedPossibleId.equals(normalizedLabId)) {
                 return id;
             }
@@ -432,12 +432,6 @@ public class Main extends Application {
 
         return possibleId;
     }
-
-    private String normalize(String s) {
-        return s.replaceAll("[\\s\\-’']", "").toLowerCase(); // remove spaces, dashes, apostrophes
-    }
-
-
 
     // Reads the lab data file and populates the labTestDataByLocationId map
     private void readLabDataFile(File file) throws Exception {
