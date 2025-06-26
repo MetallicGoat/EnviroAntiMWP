@@ -34,9 +34,9 @@ public class Main extends Application {
 
     private static final String APP_NAME = "EnvioAntiMWP";
 
-    private static final int INDEX_FILE_SAMPLES_ROW = 4;
-    private static final int INDEX_FILE_DATES_ROW = 5;
-    private static final int INDEX_FILE_DATA_SHEET = 2;
+    private static int INDEX_FILE_SAMPLES_ROW = 4; // This is a fallback if search fails
+    private static int INDEX_FILE_DATES_ROW = 5; // This is a fallback if search fails
+    private static final int INDEX_FILE_DATA_SHEET = 1; // Fallback if no sheet has "tab-"
 
     private static final String editedIndexFileName = "output/UpdatedFile.xlsx";
     private static final String changesOnlyFileName = "output/ChangesOnly.xlsx";
@@ -171,12 +171,12 @@ public class Main extends Application {
 
 
         browseLabButton.setOnAction(e -> {
-            labDataFile = promptSelectFile(stage);
+            labDataFile = promptSelectFile(stage, "Lab Data");
             if (labDataFile != null) labDataField.setText(labDataFile.getAbsolutePath());
         });
 
         browseIndexButton.setOnAction(e -> {
-            indexFile = promptSelectFile(stage);
+            indexFile = promptSelectFile(stage, "Index");
             if (indexFile != null) indexFileField.setText(indexFile.getAbsolutePath());
         });
 
@@ -251,9 +251,9 @@ public class Main extends Application {
 
 
     // File Picker UI
-    private File promptSelectFile(Stage stage) {
+    private File promptSelectFile(Stage stage, String fileName) {
         FileChooser fileChooser = new FileChooser();
-        fileChooser.setTitle("Select Excel File");
+        fileChooser.setTitle("Select " + fileName + " File");
 
         File selectedFile = fileChooser.showOpenDialog(stage);
 
@@ -273,7 +273,64 @@ public class Main extends Application {
             final Sheet changesOnlySheet = changesOnlyWorkBook.createSheet("Changes Only");
             final Calendar currentCalender = new GregorianCalendar();
             final Calendar newestCalender = new GregorianCalendar();
-            final Sheet indexSheet = workbook.getSheetAt(INDEX_FILE_DATA_SHEET);
+            Sheet indexSheet = null;
+
+            // Search for sheet with name "tab-" ignore case
+            for (Sheet indexSheetGuess : workbook) {
+                if (indexSheetGuess.getSheetName().toLowerCase().contains("tab-")) {
+                    indexSheet = indexSheetGuess;
+                    break;
+                }
+            }
+
+            if (indexSheet != null) {
+                log("Index Sheet found: " + indexSheet.getSheetName());
+            } else {
+                log("No index sheet found. Trying sheet at index " + INDEX_FILE_DATA_SHEET);
+                indexSheet = workbook.getSheetAt(INDEX_FILE_DATA_SHEET);
+            }
+
+            // Try and find the INDEX_FILE_SAMPLES_ROW & INDEX_FILE_DATES_ROW
+            // Start with a guess that there is pram data in col 10
+            int dateColumnGuess = 10;
+            boolean dateFound = false;
+
+            // Search cols 10 -> 20
+            while (!dateFound && dateColumnGuess < 20) {
+
+                // search 10 rows deep
+                for (int rowIndex = 0; rowIndex < 10; rowIndex++) {
+                    final Row dateRowGuess = indexSheet.getRow(rowIndex);
+                    final Cell cell = dateRowGuess != null ? dateRowGuess.getCell(dateColumnGuess) : null;
+
+                    // Is date?
+                    if (cell != null && cell.getDateCellValue() != null) {
+                        dateFound = true; // YIPPEEE
+                        break;
+                    }
+                }
+
+                if (!dateFound) {
+                    dateColumnGuess++;
+                }
+            }
+
+            if (dateFound) {
+                INDEX_FILE_DATES_ROW = dateColumnGuess;
+                INDEX_FILE_SAMPLES_ROW = dateColumnGuess - 1;
+
+                log("Date and Sample Names row likely discovered!");
+
+                // + 1 to line up with how excel displays the indexes
+                log("Using Date Row #" + (INDEX_FILE_DATES_ROW + 1));
+                log("Using Sample Row #" + (INDEX_FILE_SAMPLES_ROW + 1));
+
+            } else {
+                log("Failed to guess date and samples row from index file.");
+                log("Falling back to hard coded values");
+            }
+
+
             final Row sampleNameRow = indexSheet.getRow(INDEX_FILE_SAMPLES_ROW);
             final Row dateNameRow = indexSheet.getRow(INDEX_FILE_DATES_ROW);
 
