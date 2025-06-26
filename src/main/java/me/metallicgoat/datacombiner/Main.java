@@ -20,6 +20,7 @@ import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.util.CellAddress;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import javafx.geometry.Pos;
 
@@ -38,8 +39,8 @@ public class Main extends Application {
     private static int INDEX_FILE_DATES_ROW = 5; // This is a fallback if search fails
     private static final int INDEX_FILE_DATA_SHEET = 1; // Fallback if no sheet has "tab-"
 
-    private static final String editedIndexFileName = "output/UpdatedFile.xlsx";
-    private static final String changesOnlyFileName = "output/ChangesOnly.xlsx";
+    private static final String editedIndexFileName = "output/UpdatedIndex.xlsx";
+    private static final String changesOnlyFileName = "output/Changes.xlsx";
 
     private File labDataFile;
     private File indexFile;
@@ -59,11 +60,12 @@ public class Main extends Application {
     public void start(Stage stage) {
         stage.setTitle("Index Updater");
 
+        // UI components for selecting the lab and index files
         final Label labDataLabel = new Label("Lab Data File:");
         final TextField labDataField = new TextField();
         labDataField.setPromptText("No file selected");
         labDataField.setEditable(false);
-        // Add rounding for TextFields
+
         labDataField.setStyle("-fx-background-radius: 8;");
 
         final Button browseLabButton = new Button("Browse");
@@ -273,40 +275,78 @@ public class Main extends Application {
             final Sheet changesOnlySheet = changesOnlyWorkBook.createSheet("Changes Only");
             final Calendar currentCalender = new GregorianCalendar();
             final Calendar newestCalender = new GregorianCalendar();
-            Sheet indexSheet = null;
 
-            // Search for sheet with name "tab-" ignore case
-            for (Sheet indexSheetGuess : workbook) {
-                if (indexSheetGuess.getSheetName().toLowerCase().contains("tab-")) {
-                    indexSheet = indexSheetGuess;
+            Sheet indexSheet = null;
+            boolean foundTabGrf = false;
+
+            // Look for the sheet immediately after "Tab-GRF"
+            for (int i = 0; i < workbook.getNumberOfSheets(); i++) {
+                String sheetName = workbook.getSheetName(i).toLowerCase();
+                if (foundTabGrf) {
+                    indexSheet = workbook.getSheetAt(i);
                     break;
+                }
+                if (sheetName.equals("tab-grf")) {
+                    foundTabGrf = true;
                 }
             }
 
-            if (indexSheet != null) {
-                log("Index Sheet found: " + indexSheet.getSheetName());
-            } else {
-                log("No index sheet found. Trying sheet at index " + INDEX_FILE_DATA_SHEET);
-                indexSheet = workbook.getSheetAt(INDEX_FILE_DATA_SHEET);
+            if (indexSheet == null) {
+                throw new Exception("Could not find sheet after 'Tab-GRF'.");
             }
 
-            // Try and find the INDEX_FILE_SAMPLES_ROW & INDEX_FILE_DATES_ROW
-            // Start with a guess that there is pram data in col 10
-            int dateColumnGuess = 10;
+
+
+// Create evaluator once outside the loop
+            FormulaEvaluator evaluator = indexSheet.getWorkbook().getCreationHelper().createFormulaEvaluator();
+
+            int dateColumnGuess = 1; // Start with column B (0-based index)
             boolean dateFound = false;
 
-            // Search cols 10 -> 20
             while (!dateFound && dateColumnGuess < 20) {
+                // Skip hidden columns
+                if (indexSheet.isColumnHidden(dateColumnGuess)) {
+                   // log("Skipping hidden column: " + dateColumnGuess);
+                    dateColumnGuess++;
+                    continue;
+                }
 
-                // search 10 rows deep
                 for (int rowIndex = 0; rowIndex < 10; rowIndex++) {
-                    final Row dateRowGuess = indexSheet.getRow(rowIndex);
-                    final Cell cell = dateRowGuess != null ? dateRowGuess.getCell(dateColumnGuess) : null;
+                    Row row = indexSheet.getRow(rowIndex);
+                    if (row == null) continue;
 
-                    // Is date?
-                    if (cell != null && cell.getDateCellValue() != null) {
-                        dateFound = true; // YIPPEEE
-                        break;
+                    Cell cell = row.getCell(dateColumnGuess);
+                    String address = new CellAddress(rowIndex, dateColumnGuess).formatAsString();
+
+                    // Diagnostic code to see why date finder is failing
+//                    if (cell != null) {
+//                        log("Checking cell " + address + ": " + cell.toString() + " type: " + cell.getCellType());
+//                    } else {
+//                        log("Checking cell " + address + ": null");
+//                    }
+
+                    if (cell != null) {
+                        CellType cellType = cell.getCellType();
+
+                        if (cellType == CellType.NUMERIC) {
+                            if (DateUtil.isCellDateFormatted(cell)) {
+                                INDEX_FILE_DATES_ROW = rowIndex;
+                                INDEX_FILE_SAMPLES_ROW = rowIndex - 1;
+                                dateFound = true;
+                                break;
+                            }
+                        } else if (cellType == CellType.FORMULA) {
+                            CellValue evaluatedValue = evaluator.evaluate(cell);
+                            if (evaluatedValue != null
+                                    && evaluatedValue.getCellType() == CellType.NUMERIC
+                                    && DateUtil.isValidExcelDate(evaluatedValue.getNumberValue())) {
+                                // This is a date formula cell
+                                INDEX_FILE_DATES_ROW = rowIndex;
+                                INDEX_FILE_SAMPLES_ROW = rowIndex - 1;
+                                dateFound = true;
+                                break;
+                            }
+                        }
                     }
                 }
 
@@ -314,22 +354,14 @@ public class Main extends Application {
                     dateColumnGuess++;
                 }
             }
-
-            if (dateFound) {
-                INDEX_FILE_DATES_ROW = dateColumnGuess;
-                INDEX_FILE_SAMPLES_ROW = dateColumnGuess - 1;
-
-                log("Date and Sample Names row likely discovered!");
-
-                // + 1 to line up with how excel displays the indexes
-                log("Using Date Row #" + (INDEX_FILE_DATES_ROW + 1));
-                log("Using Sample Row #" + (INDEX_FILE_SAMPLES_ROW + 1));
-
-            } else {
+            if (dateFound == true) {
+                log("Found Date and Sample rows.");
+            }
+            if (!dateFound) {
                 log("Failed to guess date and samples row from index file.");
                 log("Falling back to hard coded values");
             }
-
+            log("Updating index and change files...");
 
             final Row sampleNameRow = indexSheet.getRow(INDEX_FILE_SAMPLES_ROW);
             final Row dateNameRow = indexSheet.getRow(INDEX_FILE_DATES_ROW);
