@@ -30,6 +30,7 @@ be broken into 4 basic steps.
 - Index File parameter data is inconsistent, and does not always match with lab data parameter names
   - **The solution** was to create an enum to represent every possible parameter that can appear, and setting its parameters to an array of alternate name that can appear in index file
   - Using this enum, were are able to match parameter data across files 
+
 - Index File's are generally inconsistent with formatting (e.g. date rows and sheet orders are inconstant)
   - **The solution** was to write various functions that try and guess where rows and sheets are
   - For Example, date rows are guessed by picking colum, and iterating across their cells until dates are found
@@ -37,7 +38,7 @@ be broken into 4 basic steps.
 
 
 ## UI Screenie
-![OverviewUI-2025-06-26.png](assets/OverviewUI-2025-06-26.png)
+<img src="assets/OverviewUI-2025-06-26.png" alt="UI Screenie" width="475px" height="358px"/>
 
 ## TODO (Last updated 2025-06-26)
 - Allow users to override 'guessed' constants from UI
