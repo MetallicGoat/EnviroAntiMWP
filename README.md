@@ -1,27 +1,28 @@
 # EnviroAntiMWP
 
-EnviroAntiMWP is tool that quickly copy environmental lab data collected in the field, 
+EnviroAntiMWP (manual work process) is tool that quickly copies environmental lab data collected in the field, 
 and processed by a 3rd party lab, to propitiatory index files. The goal of this project 
 is to partially automate data transfer from one standard to another. This job was previously done
-completely by hand. It not only required enormous amounts of time, but also by nature was prone to 
-a large sources of human error.
+completely by hand. It not only required enormous amounts of time, but also by nature was very prone to human error.
+By automating the matching of data, and outputting a format which can easily be checked over, we both reduce time and
+improve accuracy.
 
 
 ## Authors
 This project is developed by us, two University of Guelph students, Christian Azzam ([@MetallicGoat](https://github.com/MetallicGoat)), 
 and Braydon Affleck ([@baff-collab](https://github.com/baff-collab)). We developed this project on the side while working 
-Co-op jobs, to help automate one aspect of [@baff-collab](https://github.com/baff-collab)'s Co-op position. With more 
-programing experience [@MetallicGoat](https://github.com/MetallicGoat) wrote the initial script and UI. Since then both
+Co-op jobs to help automate one aspect of [@baff-collab](https://github.com/baff-collab)'s Co-op position. With more 
+programing experience [@MetallicGoat](https://github.com/MetallicGoat) wrote the initial script and UI. Since then, both
 of us have collaborated to expand the tooling as a hobby project in our free time outside of work.
 
 
 ## How it works
-This app reads a lab data file (a xlsx file containing a table of test location and associated
+This app reads a lab data file (an xlsx file containing a table of test locations and associated
 environmental test results) and then converts that data into the index files standard (a xlsx file 
-containing a table of archived lab data from previous years). When it comes down to it, the app's function can
-be broken into 4 basic steps.
+containing a table of archived lab data from previous years). The app's function can
+be broken down into 4 basic steps:
 
-1. The lab data file is scanned looking for all locations that appear in the table. 
+1. The lab data file is scanned for all locations with test results. 
 2. Once all locations are stored in memory, the index file is then cross-referenced to find common location ids.
 3. The data in the lab file is reorganized to match the structure of the data in the lab file.
 4. A new column in the is inserted into the index file in and the new data is written.
