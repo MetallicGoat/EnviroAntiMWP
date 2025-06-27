@@ -12,7 +12,7 @@ This project is developed by us, two University of Guelph students, Christian Az
 and Braydon Affleck ([@baff-collab](https://github.com/baff-collab)). We developed this project on the side while working 
 Co-op jobs, to help automate one aspect of [@baff-collab](https://github.com/baff-collab)'s Co-op position. With more 
 programing experience [@MetallicGoat](https://github.com/MetallicGoat) wrote the initial script and UI. Since then both
-of use have collaborated to expand the tooling as a hobby project in our free time outside of work.
+of us have collaborated to expand the tooling as a hobby project in our free time outside of work.
 
 
 ## How it works
@@ -40,8 +40,9 @@ be broken into 4 basic steps.
 ## UI Screenie
 <img src="assets/OverviewUI-2025-06-26.png" alt="UI Screenie" width="475px" height="358px"/>
 
-## TODO (Last updated 2025-06-26)
-- Allow users to override 'guessed' constants from UI
+## Plans (Last updated 2025-06-26)
+- [ ] Allow users to override 'guessed' constants from UI
+- [ ] Automate graph data sheet in index workbook
 
 ### Tools used
 - Java
