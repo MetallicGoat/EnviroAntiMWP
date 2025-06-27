@@ -24,8 +24,6 @@ import org.apache.poi.ss.util.CellAddress;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import javafx.geometry.Pos;
 
-import static me.metallicgoat.datacombiner.Normalizer.normalize;
-
 import java.io.*;
 import java.util.Set;
 import java.util.HashSet;
@@ -122,7 +120,7 @@ public class Main extends Application {
         logArea.setStyle("-fx-font-family: 'Consolas'; -fx-background-radius: 8;");
         logArea.setPrefHeight(300);
 
-        Label creditLabel = new Label("Created by Christian Azzam and Braydon Affleck · Written by Christian Azzam.");
+        Label creditLabel = new Label("Created by Christian Azzam and Braydon Affleck · Making life less painful");
         creditLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: #777;");
 
         final TitledPane logPane = new TitledPane("Log Output", logArea);
@@ -369,7 +367,7 @@ public class Main extends Application {
             // 1. Snapshot of all lab IDs normalized BEFORE processing
             Set<String> allLabIdsNormalized = new HashSet<>();
             for (String id : labTestDataByLocationId.keySet()) {
-                allLabIdsNormalized.add(normalize(id));
+                allLabIdsNormalized.add(Util.normalizeSampleId(id));
             }
 
             // To keep track of which lab IDs got matched this run
@@ -389,7 +387,7 @@ public class Main extends Application {
             for (Cell cell : cells) {
                 if (cell.getCellType() == CellType.STRING) {
                     String currRawId = cell.getStringCellValue();
-                    String normalizedCurrId = normalize(currRawId);
+                    String normalizedCurrId = Util.normalizeSampleId(currRawId);
 
                     if (alreadyHandledIds.contains(normalizedCurrId)) {
                         continue; // skip duplicates and cont'd versions
@@ -400,7 +398,7 @@ public class Main extends Application {
                     // Find matching lab ID key for this index ID
                     String matchedLabId = null;
                     for (String labId : labTestDataByLocationId.keySet()) {
-                        if (normalize(labId).equals(normalizedCurrId)) {
+                        if (Util.normalizeSampleId(labId).equals(normalizedCurrId)) {
                             matchedLabId = labId;
                             break;
                         }
@@ -439,7 +437,7 @@ public class Main extends Application {
                                 }
                             } catch (Exception ex) {
                                 keepLooking = false;
-                                issue = "Error reading date in column " + NumberTranslator.columnIndexToExcelLetter(currColIndex);
+                                issue = "Error reading date in column " + Util.columnIndexToExcelLetter(currColIndex);
                                 ex.printStackTrace();
                             }
                         }
@@ -489,7 +487,7 @@ public class Main extends Application {
 
                             matchedLabIdsNormalized.add(normalizedCurrId);
 
-                            log(currRawId + ": COMPLETED - added new column at index " + NumberTranslator.columnIndexToExcelLetter(currColIndex) + ".");
+                            log(currRawId + ": COMPLETED - added new column at index " + Util.columnIndexToExcelLetter(currColIndex) + ".");
 
                             updatedLocationsAmount++;
                         } else {
@@ -510,7 +508,7 @@ public class Main extends Application {
                     if (NON_WELL_LABELS.contains(rawId)) {
                         continue;
                     }
-                    String normalizedId = normalize(rawId);
+                    String normalizedId = Util.normalizeSampleId(rawId);
 
                     if (!normalizedSampleIdsInIndex.contains(normalizedId)) {
                         normalizedSampleIdsInIndex.add(normalizedId);
@@ -535,7 +533,7 @@ public class Main extends Application {
             // 4. Find lab IDs that were never matched to index (missed wells)
             List<String> unmatchedLabIds = new ArrayList<>();
             for (String labId : labTestDataByLocationId.keySet()) {
-                String normalizedLabId = normalize(labId);
+                String normalizedLabId = Util.normalizeSampleId(labId);
                 if (!matchedLabIdsNormalized.contains(normalizedLabId)) {
                     unmatchedLabIds.add(labId);
                 }
@@ -563,10 +561,10 @@ public class Main extends Application {
     }
 
     private String tryToMatchLocationID(String possibleId) {
-        String normalizedPossibleId = Normalizer.normalize(possibleId);
+        String normalizedPossibleId = Util.normalizeSampleId(possibleId);
 
         for (String id : labTestDataByLocationId.keySet()) {
-            String normalizedLabId = Normalizer.normalize(id);
+            String normalizedLabId = Util.normalizeSampleId(id);
             if (normalizedPossibleId.equals(normalizedLabId)) {
                 return id;
             }

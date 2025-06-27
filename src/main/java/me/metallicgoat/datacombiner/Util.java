@@ -25,12 +25,23 @@ public class Util {
         }
     }
 
-    public static Workbook createNewWorkBook() {
-        try (Workbook workbook = new XSSFWorkbook(); Workbook workbook2 = new XSSFWorkbook()) {
-            return workbook;
-        } catch (Exception e) {
-            e.printStackTrace();
-            throw new RuntimeException("Failed to create new workbook", e);
+    public static String columnIndexToExcelLetter(int column) {
+        StringBuilder letter = new StringBuilder();
+        while (column >= 0) {
+            int remainder = column % 26;
+            letter.insert(0, (char) (remainder + 'A'));
+            column = (column / 26) - 1;
         }
+        return letter.toString();
+    }
+
+    // Index Files Sometimes have weird pram names with extra additions
+    public static String normalizeSampleId(String input) {
+        if (input == null) return "";
+        return input
+                .toLowerCase()
+                .replaceAll("\\b(cont'd|continued|duplicate)\\b", "")
+                .replaceAll("[^a-z0-9]", "")
+                .trim();
     }
 }
