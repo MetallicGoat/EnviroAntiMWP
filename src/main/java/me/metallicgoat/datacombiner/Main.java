@@ -27,11 +27,12 @@ import javafx.geometry.Pos;
 import java.io.*;
 import java.util.Set;
 import java.util.HashSet;
+import java.text.SimpleDateFormat;
 
 
 public class Main extends Application {
 
-    private static final String APP_NAME = "EnvioAntiMWP";
+    private static final String APP_NAME = "EnviroAntiMWP";
 
     private static int INDEX_FILE_SAMPLES_ROW = 4; // This is a fallback if search fails
     private static int INDEX_FILE_DATES_ROW = 5; // This is a fallback if search fails
@@ -47,7 +48,7 @@ public class Main extends Application {
     private final HashMap<String, LocationTestData> labTestDataByLocationId = new HashMap<>();
     private Button openFileButton;
     private Button openChangesOnlyFileButton;
-    private static final Set<String> NON_WELL_LABELS = Set.of("PARAMETER", "Units", "ODWQS", "PWQO");
+    private static final Set<String> NON_WELL_LABELS = Set.of("PARAMETER", "Units", "UNITS", "ODWQS", "PWQO");
 
 
     public static void main(String[] args) {
@@ -264,11 +265,11 @@ public class Main extends Application {
         return selectedFile;
     }
 
-
+int currRow;
     private void tryUpdateIndexFile(File file) throws Exception {
         try (final FileInputStream fis = new FileInputStream(file);
              final Workbook workbook = new XSSFWorkbook(fis);
-             final Workbook changesOnlyWorkBook = new XSSFWorkbook();
+             final Workbook changesOnlyWorkBook = new XSSFWorkbook()
         ) {
             final Sheet changesOnlySheet = changesOnlyWorkBook.createSheet("Changes Only");
             final Calendar currentCalender = new GregorianCalendar();
@@ -277,17 +278,18 @@ public class Main extends Application {
             Sheet indexSheet = null;
             boolean foundTabGrf = false;
 
-            // Look for the sheet immediately after "Tab-GRF"
+            // Look for the sheet immediately after "Tab-GRF" or "TC-GRF"
             for (int i = 0; i < workbook.getNumberOfSheets(); i++) {
                 String sheetName = workbook.getSheetName(i).toLowerCase();
                 if (foundTabGrf) {
                     indexSheet = workbook.getSheetAt(i);
                     break;
                 }
-                if (sheetName.equals("tab-grf")) {
+                if (sheetName.equals("tab-grf") || sheetName.equals("tc-grf")) {
                     foundTabGrf = true;
                 }
             }
+
 
             if (indexSheet == null) {
                 throw new Exception("Could not find sheet after 'Tab-GRF'.");
@@ -309,7 +311,7 @@ public class Main extends Application {
                     continue;
                 }
 
-                for (int rowIndex = 0; rowIndex < 10; rowIndex++) {
+                for (int rowIndex = 2; rowIndex < 10; rowIndex++) {
                     Row row = indexSheet.getRow(rowIndex);
                     if (row == null) continue;
 
@@ -352,7 +354,7 @@ public class Main extends Application {
                     dateColumnGuess++;
                 }
             }
-            if (dateFound == true) {
+            if (dateFound) {
                 log("Found Date and Sample rows.");
             }
             if (!dateFound) {
@@ -436,9 +438,24 @@ public class Main extends Application {
                                     keepLooking = false;
                                 }
                             } catch (Exception ex) {
+                                String cellInfo;
+
+                                try {
+                                    Cell debugCell = indexSheet.getRow(currRow).getCell(currColIndex);
+                                    if (debugCell == null) {
+                                        cellInfo = "Cell is null.";
+                                    } else {
+                                        cellInfo = "Cell content: '" + debugCell.toString() + "', type: " + debugCell.getCellType();
+                                    }
+                                } catch (Exception nestedEx) {
+                                    cellInfo = "Unable to inspect cell.";
+                                }
+
                                 keepLooking = false;
-                                issue = "Error reading date in column " + Util.columnIndexToExcelLetter(currColIndex);
-                                ex.printStackTrace();
+                                issue = "Error reading date in column " + Util.columnIndexToExcelLetter(currColIndex)
+                                        + " at row " + (currRow + 1) + ". " + cellInfo;
+
+                                ex.printStackTrace(); // Optional: disable later
                             }
                         }
 
@@ -620,7 +637,7 @@ public class Main extends Application {
 
                 nullCount = 0;
 
-                int currRow = sampleRow.getRowNum() + 2;
+                currRow = sampleRow.getRowNum() + 2;
                 int nullRowCount = 0;
 
                 while (nullRowCount < 10) {
@@ -676,14 +693,29 @@ public class Main extends Application {
             return;
         }
 
+        Workbook workbook = cell.getSheet().getWorkbook();
+        CreationHelper creationHelper = workbook.getCreationHelper();
+        CellStyle dateStyle = workbook.createCellStyle();
+        short dateFormat = creationHelper.createDataFormat().getFormat("MMM-yy");
+        dateStyle.setDataFormat(dateFormat);
+
         try {
-            // fix some things copied as strings
-            final double numericValue = Double.parseDouble(value);
-            cell.setCellValue(numericValue);
-        } catch (NumberFormatException e) {
-            cell.setCellValue(value);
+            // Try parsing as a date first
+            Date parsedDate = new SimpleDateFormat("MMM-yy").parse(value);
+            cell.setCellValue(parsedDate);
+            cell.setCellStyle(dateStyle);
+        } catch (Exception ignored) {
+            try {
+                // Fall back to numeric
+                double numericValue = Double.parseDouble(value);
+                cell.setCellValue(numericValue);
+            } catch (NumberFormatException e) {
+                // Otherwise just write as a string
+                cell.setCellValue(value);
+            }
         }
     }
+
 
     // Creates a new column, coping the style from the left cells
     // Try to be consistent with the index file
