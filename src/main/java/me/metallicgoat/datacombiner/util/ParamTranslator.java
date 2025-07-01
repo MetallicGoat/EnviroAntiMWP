@@ -1,4 +1,4 @@
-package me.metallicgoat.datacombiner;
+package me.metallicgoat.datacombiner.util;
 
 import java.util.*;
 
@@ -9,7 +9,7 @@ import java.util.*;
 // Convert slashes, spaces, commas, and dashes to underscore
 // Case is irrelevant, lower preferred
 
-public enum Param {
+public enum ParamTranslator {
   ag("silver"),
   al("aluminum"),
   al__dissolved_("aluminum"),
@@ -91,17 +91,17 @@ public enum Param {
 
   private final Set<String> alternatives;
 
-  Param(String... alternatives) {
+  ParamTranslator(String... alternatives) {
     this.alternatives = new HashSet<>();
     for (String alt : alternatives) {
       this.alternatives.add(standardizeParam( alt.toLowerCase()));
     }
   }
 
-  private static final Map<String, Param> LOOKUP_MAP = new HashMap<>();
+  private static final Map<String, ParamTranslator> LOOKUP_MAP = new HashMap<>();
 
   static {
-    for (Param param : values()) {
+    for (ParamTranslator param : values()) {
       // Add enum name itself
       LOOKUP_MAP.put(standardizeParam(param.name()), param);
       // Add all alternative names
@@ -111,14 +111,14 @@ public enum Param {
     }
   }
 
-  public static Param getParamByAlternativeName(String name) {
+  public static ParamTranslator getParamByAlternativeName(String name) {
     if (name == null) return null;
     return LOOKUP_MAP.get(standardizeParam(name));
   }
 
 
   public static String getStandardName(String param) {
-    final Param p = getParamByAlternativeName(param);
+    final ParamTranslator p = getParamByAlternativeName(param);
 
     if (p != null) {
       return standardizeParam(p.name());

@@ -1,4 +1,4 @@
-package me.metallicgoat.datacombiner;
+package me.metallicgoat.datacombiner.util;
 
 import java.util.Date;
 import java.util.HashMap;
@@ -13,17 +13,17 @@ public class LocationTestData {
 
 
   public void addData(String param, String value) {
-    data.put(Param.standardizeParam(param), value);
+    data.put(ParamTranslator.standardizeParam(param), value);
   }
 
   public String getDataByParam(String param) {
-    param = Param.standardizeParam(param);
+    param = ParamTranslator.standardizeParam(param);
 
     final String result = data.get(param);
 
     if (result == null) {
       // Try to get the standardized name from Param enum
-      final String standardizedParam = Param.getStandardName(param);
+      final String standardizedParam = ParamTranslator.getStandardName(param);
       return data.get(standardizedParam);
     }
 
